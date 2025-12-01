@@ -1,4 +1,21 @@
+
 import { UPIData } from '../types';
+
+// Helper to format VPA handle into a readable name
+// e.g. "amazon.pay@hdfc" -> "Amazon Pay"
+const deriveNameFromVPA = (vpa: string): string => {
+  try {
+    if (!vpa) return 'Unknown Merchant';
+    const handle = vpa.split('@')[0];
+    // Replace dots, underscores, hyphens with spaces and capitalize words
+    return handle
+      .replace(/[._-]/g, ' ')
+      .replace(/\b\w/g, char => char.toUpperCase())
+      .trim();
+  } catch (e) {
+    return 'Merchant';
+  }
+};
 
 // Helper to parse EMV TLV data
 const parseBharatQR = (data: string): UPIData | null => {
@@ -47,9 +64,14 @@ const parseBharatQR = (data: string): UPIData | null => {
     if (!vpa) return null; // Minimal requirement
 
     const amount = tags['54'] || null; // Transaction Amount
-    const name = tags['59'] || null; // Merchant Name
+    let name = tags['59'] || null; // Merchant Name
     const mcc = tags['52'] || null; // Merchant Category Code
     const txnRef = tags['62'] ? parseSubTag(tags['62'], '05') : null; // Tag 62 (Additional Data) -> 05 (Reference ID)
+
+    // Fallback for missing name
+    if (!name && vpa) {
+      name = deriveNameFromVPA(vpa);
+    }
 
     return {
       pa: vpa,
@@ -106,18 +128,26 @@ export const parseUPIUri = (uri: string): UPIData | null => {
 
     const params = new URLSearchParams(queryString);
 
+    let pn = params.get('pn');
+    const pa = params.get('pa');
+
+    // VPA is mandatory for a valid UPI intent
+    if (!pa) return null;
+
+    // Fallback if pn is missing
+    if (!pn) {
+      pn = deriveNameFromVPA(pa);
+    }
+
     const data: UPIData = {
-      pa: params.get('pa'),
-      pn: params.get('pn'),
+      pa: pa,
+      pn: pn,
       am: params.get('am'),
       tn: params.get('tn'),
       tr: params.get('tr'),
       mc: params.get('mc'),
       rawUri: uri
     };
-
-    // VPA is mandatory for a valid UPI intent
-    if (!data.pa) return null;
 
     return data;
   } catch (e) {

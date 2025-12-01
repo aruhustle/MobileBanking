@@ -2,7 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
-import { Check, Share2, XCircle, Clock, Home, ArrowLeft, Copy, BellPlus, List, MessageSquareText } from 'lucide-react';
+import { Check, Share2, XCircle, Clock, Home, ArrowLeft, Copy, BellPlus, List } from 'lucide-react';
 import { Transaction } from '../types';
 import { formatCurrency, formatDate } from '../utils/historyManager';
 import { saveReminder } from '../utils/reminderManager';
@@ -16,28 +16,6 @@ export const Result: React.FC = () => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   
-  // Notification State
-  const [showNotification, setShowNotification] = useState(false);
-  const [currentBalance, setCurrentBalance] = useState<string>('');
-
-  useEffect(() => {
-    if (transaction && transaction.status === 'SUCCESS') {
-      const user = getCurrentUser();
-      if (user) {
-        setCurrentBalance(formatCurrency(user.balance));
-      }
-
-      // Trigger simulated SMS notification after 1.5s
-      const timer = setTimeout(() => {
-        setShowNotification(true);
-        // Auto hide after 7 seconds
-        setTimeout(() => setShowNotification(false), 7000);
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [transaction]);
-
   if (!transaction) {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -164,30 +142,6 @@ export const Result: React.FC = () => {
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.textColor} flex flex-col transition-colors duration-300`}>
       
-      {/* Simulated Offline SMS Notification */}
-      <div 
-        className={`fixed top-2 left-2 right-2 z-50 transition-all duration-500 ease-out transform ${
-          showNotification ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
-        }`}
-        onClick={() => setShowNotification(false)}
-      >
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-4 border border-gray-200 flex items-start gap-3 cursor-pointer">
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shrink-0 text-white shadow-md">
-                <MessageSquareText size={20} />
-            </div>
-            <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center mb-0.5">
-                  <h4 className="text-sm font-bold text-gray-900">HDFC Bank</h4>
-                  <span className="text-[10px] text-gray-500">now</span>
-                </div>
-                <p className="text-xs text-gray-600 leading-snug">
-                  <span className="font-semibold text-gray-800">Rs.{formatCurrency(transaction.am)}</span> debited from HDFC Bank A/c **8899 to <span className="font-semibold text-gray-800">{transaction.pn}</span> ({transaction.pa}).<br/>
-                  Bal: <span className="font-semibold text-gray-800">Rs.{currentBalance}</span>.
-                </p>
-            </div>
-        </div>
-      </div>
-
       {/* Header */}
       <div className="p-4">
          <button 

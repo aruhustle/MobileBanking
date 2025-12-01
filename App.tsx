@@ -13,6 +13,7 @@ import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { Reminders } from './pages/Reminders';
 import { ChatSupport } from './pages/ChatSupport';
+import { BillPayments } from './pages/BillPayments';
 import { getCurrentUser } from './utils/authManager';
 
 // Protected Route wrapper
@@ -49,6 +50,7 @@ const App: React.FC = () => {
             <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
             <Route path="/chat-support" element={<ProtectedRoute><ChatSupport /></ProtectedRoute>} />
             <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
+            <Route path="/bills" element={<ProtectedRoute><BillPayments /></ProtectedRoute>} />
           </Routes>
         </div>
       </div>

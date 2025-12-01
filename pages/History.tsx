@@ -4,17 +4,18 @@ import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { getHistory, formatDate, formatCurrency } from '../utils/historyManager';
 import { Transaction } from '../types';
-import { Calendar, MessageSquare, ChevronRight, Hash, CheckCircle2, XCircle, Clock, Search, Filter, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { Calendar, MessageSquare, ChevronRight, Hash, CheckCircle2, XCircle, Clock, Search, Filter, ArrowDownLeft, ArrowUpRight, MapPin, Copy, Share2, HelpCircle, X } from 'lucide-react';
+import { Button } from '../components/Button';
 
 export const History: React.FC = () => {
   const navigate = useNavigate();
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
+  const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
   
   // Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SUCCESS' | 'FAILURE'>('ALL');
-  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const history = getHistory();
@@ -43,7 +44,7 @@ export const History: React.FC = () => {
   }, [searchQuery, statusFilter, allTransactions]);
 
   const handleTransactionClick = (tx: Transaction) => {
-    navigate('/result', { state: { transaction: tx } });
+    setSelectedTx(tx);
   };
 
   const getStatusIcon = (status: string) => {
@@ -167,6 +168,107 @@ export const History: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Detail Modal */}
+      {selectedTx && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              {/* Modal Header */}
+              <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                  <h3 className="font-bold text-gray-900">Transaction Details</h3>
+                  <button onClick={() => setSelectedTx(null)} className="p-1 text-gray-500 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto">
+                 {/* Main Status */}
+                 <div className="text-center mb-6">
+                     <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 ${selectedTx.status === 'SUCCESS' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                         {selectedTx.status === 'SUCCESS' ? <CheckCircle2 size={32} /> : <XCircle size={32} />}
+                     </div>
+                     <p className="text-gray-500 text-sm mb-1">{selectedTx.status === 'SUCCESS' ? 'Payment Successful' : 'Payment Failed'}</p>
+                     <h2 className="text-3xl font-bold text-gray-900">₹{formatCurrency(selectedTx.am)}</h2>
+                 </div>
+
+                 {/* Key Details */}
+                 <div className="space-y-4 text-sm">
+                     <div className="flex justify-between py-2 border-b border-gray-50">
+                        <span className="text-gray-500">Paid to</span>
+                        <div className="text-right">
+                           <p className="font-bold text-gray-900">{selectedTx.pn}</p>
+                           <p className="text-xs text-gray-400">{selectedTx.pa}</p>
+                        </div>
+                     </div>
+                     <div className="flex justify-between py-2 border-b border-gray-50">
+                        <span className="text-gray-500">Date</span>
+                        <span className="font-medium text-gray-900">{new Date(selectedTx.date).toLocaleString()}</span>
+                     </div>
+                     <div className="flex justify-between py-2 border-b border-gray-50">
+                        <span className="text-gray-500">Debited from</span>
+                        <span className="font-medium text-gray-900">HDFC Bank **** 8899</span>
+                     </div>
+                     
+                     {selectedTx.mc && (
+                         <div className="flex justify-between py-2 border-b border-gray-50">
+                            <span className="text-gray-500">Category (MCC)</span>
+                            <span className="font-medium text-gray-900">{selectedTx.mc}</span>
+                         </div>
+                     )}
+
+                     <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                        <div className="flex justify-between text-xs">
+                           <span className="text-gray-500">UPI Ref ID</span>
+                           <span className="font-mono text-gray-700">{selectedTx.txnRef || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                           <span className="text-gray-500">UTR Number</span>
+                           <div className="flex gap-2">
+                              <span className="font-mono text-gray-700">{selectedTx.utr || 'N/A'}</span>
+                              <Copy size={12} className="text-blue-600 cursor-pointer" onClick={() => navigator.clipboard.writeText(selectedTx.utr || '')} />
+                           </div>
+                        </div>
+                     </div>
+                     
+                     {/* Map / Location if available */}
+                     {selectedTx.location && (
+                        <div className="mt-4">
+                            <div className="flex items-center gap-2 mb-2 text-gray-700 font-medium">
+                                <MapPin size={16} /> Location
+                            </div>
+                            <div className="bg-blue-50 rounded-xl p-3 flex items-center justify-between">
+                                <span className="text-xs text-blue-800 truncate">{selectedTx.location.address || `${selectedTx.location.lat}, ${selectedTx.location.lng}`}</span>
+                                <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${selectedTx.location.lat},${selectedTx.location.lng}`} 
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                  className="text-xs font-bold text-blue-600 hover:underline"
+                                >
+                                    View on Map
+                                </a>
+                            </div>
+                        </div>
+                     )}
+
+                     {selectedTx.tn && (
+                        <div className="mt-4 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
+                           <p className="text-xs text-yellow-800 font-medium">Note</p>
+                           <p className="text-sm text-yellow-900 italic">"{selectedTx.tn}"</p>
+                        </div>
+                     )}
+                 </div>
+              </div>
+
+              {/* Actions */}
+              <div className="p-4 border-t border-gray-100 grid grid-cols-2 gap-3 bg-white">
+                  <Button variant="outline" className="text-xs" onClick={() => navigate('/chat-support')}>
+                     <HelpCircle size={14} className="mr-2" /> Get Help
+                  </Button>
+                  <Button className="text-xs bg-blue-800" onClick={() => navigate('/result', { state: { transaction: selectedTx } })}>
+                     <Share2 size={14} className="mr-2" /> View Receipt
+                  </Button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

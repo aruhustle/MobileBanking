@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Scan, Send, History, Bell, User } from 'lucide-react';
+import { Scan, Send, History, Bell, User, Receipt, Contact as ContactIcon } from 'lucide-react';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
 import { getRecentPayees } from '../utils/historyManager';
@@ -21,13 +21,49 @@ export const Home: React.FC = () => {
   }, []);
 
   const handleContactClick = (contact: Contact) => {
-    // Pre-fill manual entry with this contact's details
     navigate('/manual', { 
         state: { 
             initialVpa: contact.id, 
             initialName: contact.name 
         }
     });
+  };
+
+  const pickContact = async () => {
+    const nav = navigator as any;
+    if ('contacts' in nav && 'ContactsManager' in window) {
+      try {
+        const props = ['name', 'tel'];
+        const opts = { multiple: false };
+        const contacts = await nav.contacts.select(props, opts);
+        
+        if (contacts.length) {
+            const contact = contacts[0];
+            const name = contact.name?.[0] || 'Unknown';
+            // Extract raw number, remove non-digits
+            let phone = contact.tel?.[0] || '';
+            phone = phone.replace(/\D/g, '').slice(-10); // Last 10 digits
+            
+            if (phone.length === 10) {
+                 navigate('/manual', {
+                    state: {
+                        initialVpa: `${phone}@hdfc`, // Assuming HDFC VPA pattern
+                        initialName: name
+                    }
+                 });
+            } else {
+                alert("Selected contact does not have a valid 10-digit mobile number.");
+            }
+        }
+      } catch (ex) {
+        // User cancelled or error
+        console.log(ex);
+      }
+    } else {
+      // Fallback
+      alert("Contact picker is not supported on this device. Please enter details manually.");
+      navigate('/manual');
+    }
   };
 
   return (
@@ -66,19 +102,22 @@ export const Home: React.FC = () => {
            
            <div className="flex flex-col items-center gap-2">
               <button 
-                onClick={() => navigate('/reminders')}
+                onClick={() => navigate('/bills')}
                 className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 hover:bg-orange-200 transition"
+              >
+                <Receipt size={20} />
+              </button>
+              <span className="text-xs font-medium text-gray-600">Bills</span>
+           </div>
+
+           <div className="flex flex-col items-center gap-2">
+              <button 
+                onClick={() => navigate('/reminders')}
+                className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 hover:bg-purple-200 transition"
               >
                 <Bell size={20} />
               </button>
               <span className="text-xs font-medium text-gray-600">Remind</span>
-           </div>
-
-           <div className="flex flex-col items-center gap-2">
-              <button className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 hover:bg-purple-200 transition">
-                <User size={20} />
-              </button>
-              <span className="text-xs font-medium text-gray-600">Self</span>
            </div>
 
            <div className="flex flex-col items-center gap-2">
@@ -94,15 +133,21 @@ export const Home: React.FC = () => {
 
         {/* People & Bills */}
         <div>
-          <h3 className="text-md font-bold text-gray-800 mb-4">People & Bills</h3>
+          <h3 className="text-md font-bold text-gray-800 mb-4">Send Money</h3>
           <div className="grid grid-cols-4 gap-y-6 gap-x-2">
             
-            {/* New Payment Button if list is empty or just as first option */}
-            {contacts.length === 0 && (
-               <div className="col-span-4 text-center py-4 text-gray-400 text-sm italic">
-                 Recent transactions will appear here
-               </div>
-            )}
+            {/* Contacts Button */}
+            <div 
+              className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80"
+              onClick={pickContact}
+            >
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold bg-blue-50 text-blue-600 border border-blue-100">
+                 <ContactIcon size={24} />
+              </div>
+              <span className="text-xs text-gray-600 font-medium text-center truncate w-full px-1">
+                Contacts
+              </span>
+            </div>
 
             {contacts.map(contact => (
               <div 

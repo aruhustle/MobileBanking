@@ -1,4 +1,5 @@
 
+
 export interface UPIData {
   pa: string | null; // Payee Address (VPA)
   pn: string | null; // Payee Name
@@ -21,6 +22,11 @@ export interface Transaction {
   txnRef?: string;
   mc?: string | null; // Merchant Category Code
   type?: 'DEBIT' | 'CREDIT';
+  location?: {
+    lat: number;
+    lng: number;
+    address?: string;
+  };
 }
 
 export enum PaymentStatus {
@@ -48,4 +54,22 @@ export interface Reminder {
   dueDate?: string; // ISO Date string
   note?: string;
   frequency?: 'ONCE' | 'MONTHLY';
+}
+
+export interface Biller {
+  id: string;
+  name: string;
+  category: 'ELECTRICITY' | 'MOBILE' | 'DTH' | 'BROADBAND' | 'GAS' | 'FASTAG';
+  identifierLabel: string; // e.g. "Consumer Number", "Mobile Number"
+  identifierValue: string;
+  icon?: string;
+}
+
+export interface Bill {
+  id: string;
+  billerId: string;
+  amount: string;
+  dueDate: string;
+  status: 'PENDING' | 'PAID';
+  billDate: string;
 }

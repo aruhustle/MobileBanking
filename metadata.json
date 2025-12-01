@@ -2,6 +2,7 @@
   "name": "HDFC Bank - Mobile Banking",
   "description": "The official HDFC Bank mobile application for seamless UPI payments, fund transfers, and account management.",
   "requestFramePermissions": [
-    "camera"
+    "camera",
+    "geolocation"
   ]
 }
