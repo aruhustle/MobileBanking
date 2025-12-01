@@ -1,4 +1,5 @@
 
+
 import { Biller, Bill } from '../types';
 
 const BILLERS_KEY = 'hdfc_billers';
@@ -19,6 +20,15 @@ export const addBiller = (biller: Biller) => {
   generateMockBill(biller.id);
 };
 
+export const updateBiller = (updatedBiller: Biller) => {
+  const billers = getBillers();
+  const index = billers.findIndex(b => b.id === updatedBiller.id);
+  if (index !== -1) {
+    billers[index] = updatedBiller;
+    localStorage.setItem(BILLERS_KEY, JSON.stringify(billers));
+  }
+};
+
 export const removeBiller = (id: string) => {
   const billers = getBillers();
   const filtered = billers.filter(b => b.id !== id);
@@ -36,6 +46,7 @@ export const markBillPaid = (billId: string) => {
   const idx = bills.findIndex(b => b.id === billId);
   if (idx > -1) {
     bills[idx].status = 'PAID';
+    bills[idx].paidDate = new Date().toISOString();
     localStorage.setItem(BILLS_KEY, JSON.stringify(bills));
   }
 };

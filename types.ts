@@ -72,4 +72,5 @@ export interface Bill {
   dueDate: string;
   status: 'PENDING' | 'PAID';
   billDate: string;
+  paidDate?: string;
 }

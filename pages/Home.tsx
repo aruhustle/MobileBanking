@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Scan, Send, History, Bell, User, Receipt, Contact as ContactIcon } from 'lucide-react';
@@ -138,9 +137,9 @@ export const Home: React.FC = () => {
           <h3 className="text-md font-bold text-gray-800 mb-4">Send Money</h3>
           <div className="grid grid-cols-4 gap-y-6 gap-x-2">
             
-            {/* Contacts Button */}
-            <div 
-              className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80"
+            {/* Contacts Button - Changed to button for better mobile touch support */}
+            <button 
+              className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 focus:outline-none"
               onClick={pickContact}
             >
               <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold bg-blue-50 text-blue-600 border border-blue-100">
@@ -149,7 +148,7 @@ export const Home: React.FC = () => {
               <span className="text-xs text-gray-600 font-medium text-center truncate w-full px-1">
                 Contacts
               </span>
-            </div>
+            </button>
 
             {contacts.map(contact => (
               <div 
