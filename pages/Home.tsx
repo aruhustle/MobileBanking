@@ -31,7 +31,8 @@ export const Home: React.FC = () => {
 
   const pickContact = async () => {
     const nav = navigator as any;
-    if ('contacts' in nav && 'ContactsManager' in window) {
+    // Feature detection for Contact Picker API
+    if ('contacts' in nav && 'select' in nav.contacts) {
       try {
         const props = ['name', 'tel'];
         const opts = { multiple: false };
@@ -53,15 +54,16 @@ export const Home: React.FC = () => {
                  });
             } else {
                 alert("Selected contact does not have a valid 10-digit mobile number.");
+                navigate('/manual');
             }
         }
       } catch (ex) {
         // User cancelled or error
-        console.log(ex);
+        console.log("Contact picker cancelled or failed", ex);
       }
     } else {
-      // Fallback
-      alert("Contact picker is not supported on this device. Please enter details manually.");
+      // Fallback for iOS / Desktop where API is not supported
+      // Directly navigate to manual entry without error message
       navigate('/manual');
     }
   };
