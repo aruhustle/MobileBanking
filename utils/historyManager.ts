@@ -1,7 +1,7 @@
 
 import { Transaction } from '../types';
 
-const STORAGE_KEY = 'hdfc_history';
+const STORAGE_KEY = 'hdfc_history_v2'; // Version bump to force fresh seed on devices
 
 // Raw data provided for seeding
 const RAW_SEED_DATA = [
@@ -663,12 +663,28 @@ const RAW_SEED_DATA = [
   } 
 ];
 
-// Helper to parse "2025-11-21" and "12:11 AM" to ISO string
-const parseSeedDate = (date: string, time: string): string => {
+const parseSeedDate = (dateStr: string, timeStr: string): string => {
   try {
-    const dateTimeStr = `${date} ${time}`;
-    return new Date(dateTimeStr).toISOString();
+    // Robust parsing for "YYYY-MM-DD" and "HH:MM AM/PM"
+    // dateStr: "2025-11-21"
+    const [year, month, day] = dateStr.split('-').map(num => parseInt(num, 10));
+    
+    // timeStr: "12:11 AM" or "07:39 PM"
+    const [time, period] = timeStr.trim().split(' ');
+    let [hours, minutes] = time.split(':').map(num => parseInt(num, 10));
+
+    if (period === 'PM' && hours !== 12) {
+        hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+    }
+
+    // Create date object (Month is 0-indexed in JS Date)
+    const date = new Date(year, month - 1, day, hours, minutes);
+    return date.toISOString();
   } catch(e) {
+    console.error("Error parsing date:", dateStr, timeStr, e);
+    // Return current date as fallback, but this path should ideally not be reached with valid data
     return new Date().toISOString();
   }
 };
