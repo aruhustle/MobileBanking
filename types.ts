@@ -1,0 +1,51 @@
+
+export interface UPIData {
+  pa: string | null; // Payee Address (VPA)
+  pn: string | null; // Payee Name
+  am: string | null; // Amount
+  tn: string | null; // Transaction Note
+  tr: string | null; // Transaction Reference ID
+  mc: string | null; // Merchant Category Code
+  rawUri: string;
+}
+
+export interface Transaction {
+  id: string; // Internal UUID
+  pa: string;
+  pn: string;
+  am: string;
+  tn: string | null;
+  date: string;
+  status: 'INITIATED' | 'SUCCESS' | 'FAILURE';
+  utr?: string;
+  txnRef?: string;
+  mc?: string | null; // Merchant Category Code
+  type?: 'DEBIT' | 'CREDIT';
+}
+
+export enum PaymentStatus {
+  IDLE = 'IDLE',
+  PROCESSING = 'PROCESSING',
+  SUCCESS = 'SUCCESS',
+  FAILURE = 'FAILURE',
+  CANCELLED = 'CANCELLED'
+}
+
+export interface User {
+  id: string; // acts as username/phone
+  password: string;
+  name: string;
+  vpa: string;
+  balance: number;
+  phone: string;
+}
+
+export interface Reminder {
+  id: string;
+  pa: string;
+  pn: string;
+  amount?: string;
+  dueDate?: string; // ISO Date string
+  note?: string;
+  frequency?: 'ONCE' | 'MONTHLY';
+}
