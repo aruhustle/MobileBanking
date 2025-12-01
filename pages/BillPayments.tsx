@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
@@ -15,6 +14,9 @@ export const BillPayments: React.FC = () => {
   const [billers, setBillers] = useState<Biller[]>([]);
   const [bills, setBills] = useState<any[]>([]);
   const [showBillerModal, setShowBillerModal] = useState(false);
+  
+  // Payment Confirmation State
+  const [billToPay, setBillToPay] = useState<any>(null);
 
   // Add/Edit Biller Form State
   const [isEditing, setIsEditing] = useState(false);
@@ -32,18 +34,25 @@ export const BillPayments: React.FC = () => {
     setBills(getBillsWithDetails());
   };
 
-  const handlePayBill = (bill: any) => {
+  const initiatePayment = (bill: any) => {
+    setBillToPay(bill);
+  };
+
+  const confirmPayment = () => {
+    if (!billToPay) return;
+
     navigate('/manual', {
         state: {
-            initialVpa: `${bill.billerName.toLowerCase().replace(/\s/g, '')}@billpay`,
-            initialName: bill.billerName,
-            initialAmount: bill.amount,
-            note: `Bill Payment - ${formatDate(bill.billDate)}`
+            initialVpa: `${billToPay.billerName.toLowerCase().replace(/\s/g, '')}@billpay`,
+            initialName: billToPay.billerName,
+            initialAmount: billToPay.amount,
+            note: `Bill Payment - ${formatDate(billToPay.billDate)}`
         }
     });
     // In a real app, we would link the payment success to marking this bill as paid.
     // For demo, we mark it paid immediately when they click 'Pay'
-    markBillPaid(bill.id); 
+    markBillPaid(billToPay.id);
+    setBillToPay(null);
   };
 
   const openAddBiller = () => {
@@ -174,7 +183,7 @@ export const BillPayments: React.FC = () => {
                                             <p className="font-bold text-lg text-gray-900">₹{formatCurrency(bill.amount)}</p>
                                         </div>
                                     </div>
-                                    <Button fullWidth onClick={() => handlePayBill(bill)} className="h-10 text-sm bg-blue-700 hover:bg-blue-800">
+                                    <Button fullWidth onClick={() => initiatePayment(bill)} className="h-10 text-sm bg-blue-700 hover:bg-blue-800">
                                         Pay Now
                                     </Button>
                                 </div>
@@ -309,6 +318,48 @@ export const BillPayments: React.FC = () => {
                           </Button>
                       </div>
                   </div>
+              </div>
+          </div>
+      )}
+
+      {/* Bill Payment Confirmation Modal */}
+      {billToPay && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-xl">
+                 <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Bill Payment</h3>
+                 
+                 <div className="space-y-4 mb-6">
+                    <div className="bg-gray-50 p-3 rounded-xl space-y-1">
+                       <p className="text-xs text-gray-500 uppercase font-semibold">Biller</p>
+                       <p className="text-sm font-bold text-gray-900">{billToPay.billerName}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-xl space-y-1">
+                       <p className="text-xs text-gray-500 uppercase font-semibold">Due Date</p>
+                       <p className="text-sm font-bold text-gray-900">{formatDate(billToPay.dueDate)}</p>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded-xl space-y-1 text-center">
+                       <p className="text-xs text-blue-600 uppercase font-semibold">Amount</p>
+                       <p className="text-2xl font-bold text-blue-800">₹{formatCurrency(billToPay.amount)}</p>
+                    </div>
+                 </div>
+
+                 <div className="flex gap-3">
+                    <Button 
+                      fullWidth 
+                      variant="secondary" 
+                      onClick={() => setBillToPay(null)}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-800 border-none"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      fullWidth 
+                      onClick={confirmPayment}
+                      className="bg-blue-800 hover:bg-blue-900"
+                    >
+                      Confirm Pay
+                    </Button>
+                 </div>
               </div>
           </div>
       )}

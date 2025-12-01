@@ -207,12 +207,15 @@ export const History: React.FC = () => {
                         <span className="font-medium text-gray-900">HDFC Bank **** 8899</span>
                      </div>
                      
-                     {selectedTx.mc && (
-                         <div className="flex justify-between py-2 border-b border-gray-50">
-                            <span className="text-gray-500">Category (MCC)</span>
-                            <span className="font-medium text-gray-900">{selectedTx.mc}</span>
-                         </div>
-                     )}
+                     <div className="flex justify-between py-2 border-b border-gray-50">
+                        <span className="text-gray-500">Category (MCC)</span>
+                        <span className="font-medium text-gray-900">{selectedTx.mc || 'N/A'}</span>
+                     </div>
+
+                     <div className="flex justify-between py-2 border-b border-gray-50">
+                        <span className="text-gray-500">Note</span>
+                        <span className="font-medium text-gray-900 italic">{selectedTx.tn || 'N/A'}</span>
+                     </div>
 
                      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
                         <div className="flex justify-between text-xs">
@@ -245,13 +248,6 @@ export const History: React.FC = () => {
                                     View on Map
                                 </a>
                             </div>
-                        </div>
-                     )}
-
-                     {selectedTx.tn && (
-                        <div className="mt-4 bg-yellow-50 p-3 rounded-lg border border-yellow-100">
-                           <p className="text-xs text-yellow-800 font-medium">Note</p>
-                           <p className="text-sm text-yellow-900 italic">"{selectedTx.tn}"</p>
                         </div>
                      )}
                  </div>
