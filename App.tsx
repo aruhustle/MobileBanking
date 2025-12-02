@@ -1,4 +1,5 @@
 
+
 import React, { useEffect } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Home } from './pages/Home';
@@ -14,6 +15,7 @@ import { Signup } from './pages/Signup';
 import { Reminders } from './pages/Reminders';
 import { ChatSupport } from './pages/ChatSupport';
 import { BillPayments } from './pages/BillPayments';
+import { BankTransfer } from './pages/BankTransfer';
 import { getCurrentUser } from './utils/authManager';
 
 // Protected Route wrapper
@@ -45,6 +47,7 @@ const App: React.FC = () => {
             <Route path="/confirm" element={<ProtectedRoute><ConfirmPayment /></ProtectedRoute>} />
             <Route path="/result" element={<ProtectedRoute><Result /></ProtectedRoute>} />
             <Route path="/manual" element={<ProtectedRoute><ManualEntry /></ProtectedRoute>} />
+            <Route path="/bank-transfer" element={<ProtectedRoute><BankTransfer /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />

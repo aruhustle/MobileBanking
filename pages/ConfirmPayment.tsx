@@ -1,10 +1,11 @@
 
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UPIData, Transaction } from '../types';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
-import { CheckCircle2, Building2, MessageSquare, Lock, X, AlertCircle, ChevronRight, Fingerprint, ScanFace } from 'lucide-react';
+import { CheckCircle2, Building2, MessageSquare, Lock, X, AlertCircle, ChevronRight, Fingerprint, ScanFace, Landmark } from 'lucide-react';
 import { saveTransaction } from '../utils/historyManager';
 import { deductBalance, getCurrentUser } from '../utils/authManager';
 
@@ -73,10 +74,9 @@ export const ConfirmPayment: React.FC = () => {
       return;
     }
     
-    // 2. VPA Validation
-    // Simple regex for VPA or BharatQR style VPAs
+    // 2. VPA Validation (Skip if Bank Transfer)
     const vpaRegex = /^[a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+$/;
-    if (!data?.pa || !vpaRegex.test(data.pa)) {
+    if (!data?.bankDetails && (!data?.pa || !vpaRegex.test(data.pa))) {
         setErrorPopup("Invalid UPI ID (VPA) detected. Please check the recipient details.");
         triggerHaptic('error');
         return;
@@ -178,7 +178,8 @@ export const ConfirmPayment: React.FC = () => {
       status: status,
       txnRef: txnId,
       utr: utr,
-      mc: data.mc || null
+      mc: data.mc || null,
+      bankDetails: data.bankDetails
     };
 
     saveTransaction(transactionData);
@@ -198,6 +199,7 @@ export const ConfirmPayment: React.FC = () => {
   if (!data) return null;
 
   const isAmountFixed = !!data.am;
+  const isBankTransfer = !!data.bankDetails;
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -208,14 +210,22 @@ export const ConfirmPayment: React.FC = () => {
         {/* Payee Info */}
         <div className="text-center mb-8 animate-fade-in">
           <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-700 font-bold text-3xl">
-            {(data.pn || data.pa || '?').charAt(0).toUpperCase()}
+             {isBankTransfer ? <Landmark size={40} /> : (data.pn || data.pa || '?').charAt(0).toUpperCase()}
           </div>
           <h2 className="text-2xl font-bold text-gray-900">{data.pn || 'Unknown Merchant'}</h2>
-          <p className="text-gray-500 text-sm mt-1 font-mono">{data.pa}</p>
+          
+          {isBankTransfer ? (
+            <div className="mt-1 flex flex-col items-center">
+               <p className="text-gray-500 text-sm font-mono">A/c: {data.bankDetails?.accNo}</p>
+               <p className="text-gray-400 text-xs font-mono">{data.bankDetails?.ifsc}</p>
+            </div>
+          ) : (
+            <p className="text-gray-500 text-sm mt-1 font-mono">{data.pa}</p>
+          )}
           
           <div className="mt-2 flex items-center justify-center gap-1 text-green-600 text-xs font-medium bg-green-50 py-1 px-2 rounded-md inline-flex">
             <CheckCircle2 size={14} />
-            <span>Verified Merchant</span>
+            <span>Verified {isBankTransfer ? 'Account' : 'Merchant'}</span>
           </div>
         </div>
 
@@ -332,8 +342,15 @@ export const ConfirmPayment: React.FC = () => {
                    <p className="text-sm font-bold text-gray-900 truncate">{data.pn || 'Unknown'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-xl space-y-1">
-                   <p className="text-xs text-gray-500 uppercase font-semibold">UPI ID</p>
-                   <p className="text-xs font-mono text-gray-600 break-all">{data.pa}</p>
+                   <p className="text-xs text-gray-500 uppercase font-semibold">{isBankTransfer ? 'Account Details' : 'UPI ID'}</p>
+                   {isBankTransfer ? (
+                       <p className="text-xs font-mono text-gray-600 break-all">
+                           {data.bankDetails?.accNo}<br/>
+                           <span className="text-gray-400">{data.bankDetails?.ifsc}</span>
+                       </p>
+                   ) : (
+                       <p className="text-xs font-mono text-gray-600 break-all">{data.pa}</p>
+                   )}
                 </div>
                 <div className="bg-blue-50 p-3 rounded-xl space-y-1 text-center">
                    <p className="text-xs text-blue-600 uppercase font-semibold">Amount</p>

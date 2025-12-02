@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
-import { QrCode, Building2, ChevronRight, Smartphone, Shield, LogOut, Eye, EyeOff, Download, X, Camera, MapPin, Fingerprint, ToggleRight, ToggleLeft } from 'lucide-react';
+import { QrCode, Building2, ChevronRight, Smartphone, Shield, LogOut, Eye, EyeOff, Download, X, Camera, MapPin, Fingerprint, ToggleRight, ToggleLeft, Database, Copy, Check } from 'lucide-react';
 import { getCurrentUser, logoutUser } from '../utils/authManager';
 import { User } from '../types';
 import { formatCurrency } from '../utils/historyManager';
@@ -15,6 +15,7 @@ export const Profile: React.FC = () => {
   const [showPermissions, setShowPermissions] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [displayedBalance, setDisplayedBalance] = useState(0);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     const currentUser = getCurrentUser();
@@ -62,6 +63,22 @@ export const Profile: React.FC = () => {
           setBiometricEnabled(false);
           localStorage.setItem('hdfc_biometric', 'false');
       }
+  };
+
+  const handleExportData = () => {
+    const history = localStorage.getItem('hdfc_history_v2');
+    if (history) {
+        navigator.clipboard.writeText(history).then(() => {
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 2000);
+            alert("Data copied to clipboard! Please paste this to the developer to save your history permanently.");
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+            alert("Failed to copy data. Please try again.");
+        });
+    } else {
+        alert("No history data found to export.");
+    }
   };
 
   if (!user) return null;
@@ -189,12 +206,38 @@ export const Profile: React.FC = () => {
             </div>
         </div>
 
+        {/* Developer Backup Section */}
+        <div>
+             <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 pl-2">Developer Tools</h3>
+             <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden p-4">
+                 <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3 text-gray-700">
+                        <Database size={20} />
+                        <div>
+                            <p className="text-sm font-medium">Backup Data</p>
+                            <p className="text-[10px] text-gray-400">Copy history to send to developer</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={handleExportData}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${copySuccess ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    >
+                        {copySuccess ? <Check size={14} /> : <Copy size={14} />}
+                        {copySuccess ? 'Copied' : 'Copy JSON'}
+                    </button>
+                 </div>
+                 <p className="text-[10px] text-gray-400 leading-relaxed bg-gray-50 p-2 rounded-lg">
+                    Use this feature to save your local transaction history before a major app update. Paste the copied code to the developer to make it permanent.
+                 </p>
+             </div>
+        </div>
+
         <Button variant="outline" fullWidth onClick={handleLogout} className="text-red-600 border-red-100 hover:bg-red-50">
            <LogOut size={18} className="mr-2" /> Logout
         </Button>
 
         <div className="text-center text-xs text-gray-400 pt-2 pb-8">
-            HDFC Bank App Version 2.1.0
+            HDFC Bank App Version 2.2.0
         </div>
       </div>
 

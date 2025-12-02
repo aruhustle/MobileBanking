@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Scan, Send, History, Bell, User, Receipt, Contact as ContactIcon } from 'lucide-react';
+import { Scan, Send, History, Bell, User, Receipt, Contact as ContactIcon, Landmark } from 'lucide-react';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
 import { getRecentPayees } from '../utils/historyManager';
@@ -137,7 +138,7 @@ export const Home: React.FC = () => {
           <h3 className="text-md font-bold text-gray-800 mb-4">Send Money</h3>
           <div className="grid grid-cols-4 gap-y-6 gap-x-2">
             
-            {/* Contacts Button - Changed to button for better mobile touch support */}
+            {/* Contacts Button */}
             <button 
               className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 focus:outline-none"
               onClick={pickContact}
@@ -147,6 +148,19 @@ export const Home: React.FC = () => {
               </div>
               <span className="text-xs text-gray-600 font-medium text-center truncate w-full px-1">
                 Contacts
+              </span>
+            </button>
+
+            {/* To Bank Button */}
+            <button 
+              className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 focus:outline-none"
+              onClick={() => navigate('/bank-transfer')}
+            >
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+                 <Landmark size={24} />
+              </div>
+              <span className="text-xs text-gray-600 font-medium text-center truncate w-full px-1">
+                To Bank
               </span>
             </button>
 

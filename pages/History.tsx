@@ -1,10 +1,11 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { getHistory, formatDate, formatCurrency } from '../utils/historyManager';
 import { Transaction } from '../types';
-import { Calendar, MessageSquare, ChevronRight, Hash, CheckCircle2, XCircle, Clock, Search, Filter, ArrowDownLeft, ArrowUpRight, MapPin, Copy, Share2, HelpCircle, X } from 'lucide-react';
+import { Calendar, MessageSquare, ChevronRight, Hash, CheckCircle2, XCircle, Clock, Search, Filter, ArrowDownLeft, ArrowUpRight, MapPin, Copy, Share2, HelpCircle, X, Landmark } from 'lucide-react';
 import { Button } from '../components/Button';
 
 export const History: React.FC = () => {
@@ -32,7 +33,8 @@ export const History: React.FC = () => {
         (tx.pn && tx.pn.toLowerCase().includes(q)) || 
         (tx.pa && tx.pa.toLowerCase().includes(q)) ||
         (tx.am && tx.am.includes(q)) ||
-        (tx.utr && tx.utr.toLowerCase().includes(q))
+        (tx.utr && tx.utr.toLowerCase().includes(q)) ||
+        (tx.bankDetails && tx.bankDetails.accNo.includes(q))
       );
     }
 
@@ -122,7 +124,9 @@ export const History: React.FC = () => {
                       {/* Left Side: Icon & Payee */}
                       <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${isCredit ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                              {isCredit ? <ArrowDownLeft size={18}/> : (tx.pn || tx.pa || '?').charAt(0).toUpperCase()}
+                              {isCredit ? <ArrowDownLeft size={18}/> : (
+                                  tx.bankDetails ? <Landmark size={18} /> : (tx.pn || tx.pa || '?').charAt(0).toUpperCase()
+                              )}
                           </div>
                           <div>
                               <h4 className="font-bold text-gray-900 text-sm line-clamp-1">{tx.pn || tx.pa}</h4>
@@ -146,12 +150,18 @@ export const History: React.FC = () => {
                   </div>
                   
                   {/* Bottom Row: UTR & Note */}
-                  {(tx.utr || tx.tn) && (
+                  {(tx.utr || tx.tn || tx.bankDetails) && (
                     <div className="flex items-start gap-3 pt-2 border-t border-gray-50 mt-1">
-                        {tx.utr && (
+                        {tx.utr && !tx.bankDetails && (
                           <div className="flex-1 flex items-center gap-1.5 text-xs text-gray-400">
                              <Hash size={12} />
                              <span className="font-mono">UTR: {tx.utr}</span>
+                          </div>
+                        )}
+                        {tx.bankDetails && (
+                          <div className="flex-1 flex items-center gap-1.5 text-xs text-gray-400">
+                             <Landmark size={12} />
+                             <span className="font-mono">Acc: {tx.bankDetails.accNo.slice(-4).padStart(tx.bankDetails.accNo.length, '*')}</span>
                           </div>
                         )}
                         {tx.tn && (
@@ -195,7 +205,14 @@ export const History: React.FC = () => {
                         <span className="text-gray-500">Paid to</span>
                         <div className="text-right">
                            <p className="font-bold text-gray-900">{selectedTx.pn}</p>
-                           <p className="text-xs text-gray-400">{selectedTx.pa}</p>
+                           {selectedTx.bankDetails ? (
+                               <p className="text-xs text-gray-400 font-mono">
+                                   A/c: {selectedTx.bankDetails.accNo}<br/>
+                                   IFSC: {selectedTx.bankDetails.ifsc}
+                               </p>
+                           ) : (
+                               <p className="text-xs text-gray-400">{selectedTx.pa}</p>
+                           )}
                         </div>
                      </div>
                      <div className="flex justify-between py-2 border-b border-gray-50">

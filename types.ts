@@ -7,7 +7,12 @@ export interface UPIData {
   tn: string | null; // Transaction Note
   tr: string | null; // Transaction Reference ID
   mc: string | null; // Merchant Category Code
+  cu?: string | null; // Currency Code
   rawUri: string;
+  bankDetails?: {
+    accNo: string;
+    ifsc: string;
+  };
 }
 
 export interface Transaction {
@@ -26,6 +31,10 @@ export interface Transaction {
     lat: number;
     lng: number;
     address?: string;
+  };
+  bankDetails?: {
+    accNo: string;
+    ifsc: string;
   };
 }
 

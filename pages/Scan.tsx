@@ -1,8 +1,9 @@
 
+
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { useNavigate } from 'react-router-dom';
-import { X, Flashlight, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { X, Flashlight, Image as ImageIcon, AlertCircle, Zap, ZapOff } from 'lucide-react';
 import jsQR from 'jsqr';
 import { parseUPIUri } from '../utils/upiParser';
 
@@ -12,6 +13,8 @@ export const Scan: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(true);
+  const [invalidQrDetected, setInvalidQrDetected] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
   
   // Visual Feedback State
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,60 +46,14 @@ export const Scan: React.FC = () => {
         });
 
         if (code) {
-           // Draw sophisticated visual feedback
-           if (overlayCtx) {
-               const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = code.location;
-               const time = Date.now() / 1000;
-               
-               // Draw filled quad
-               overlayCtx.beginPath();
-               overlayCtx.moveTo(topLeftCorner.x, topLeftCorner.y);
-               overlayCtx.lineTo(topRightCorner.x, topRightCorner.y);
-               overlayCtx.lineTo(bottomRightCorner.x, bottomRightCorner.y);
-               overlayCtx.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
-               overlayCtx.closePath();
-               overlayCtx.lineWidth = 4;
-               overlayCtx.strokeStyle = "#3b82f6"; // Blue 500
-               overlayCtx.stroke();
-               
-               // Pulsing semi-transparent fill
-               const pulseOpacity = 0.1 + (Math.sin(time * 8) + 1) * 0.1; // Oscillate between 0.1 and 0.3
-               overlayCtx.fillStyle = `rgba(59, 130, 246, ${pulseOpacity})`;
-               overlayCtx.fill();
-
-               // Draw Laser Line Logic
-               // We want a line that moves from top to bottom relative to the QR orientation
-               
-               overlayCtx.save();
-               overlayCtx.clip(); // Clip subsequent drawing to the QR quad
-
-               const speed = 2; // scans per second
-               const phase = (time * speed) % 1;
-               
-               // Calculate bounds to interpolate line position
-               const minX = Math.min(topLeftCorner.x, bottomLeftCorner.x);
-               const maxX = Math.max(topRightCorner.x, bottomRightCorner.x);
-               const minY = Math.min(topLeftCorner.y, topRightCorner.y);
-               const maxY = Math.max(bottomLeftCorner.y, bottomRightCorner.y);
-               const height = maxY - minY;
-               
-               const lineY = minY + (height * phase);
-               
-               // Draw the laser line
-               overlayCtx.beginPath();
-               overlayCtx.moveTo(minX, lineY);
-               overlayCtx.lineTo(maxX, lineY);
-               overlayCtx.strokeStyle = "#93c5fd"; // Blue 300 (lighter for laser)
-               overlayCtx.lineWidth = 4;
-               overlayCtx.shadowColor = "#3b82f6";
-               overlayCtx.shadowBlur = 15;
-               overlayCtx.stroke();
-
-               overlayCtx.restore();
-           }
-
           const parsed = parseUPIUri(code.data);
+
           if (parsed) {
+            // Valid UPI QR Found
+            if (overlayCtx) {
+               drawSuccessOverlay(overlayCtx, code.location);
+            }
+
             setScanning(false);
             // Haptic feedback on success
             if (navigator.vibrate) navigator.vibrate(50);
@@ -107,21 +64,73 @@ export const Scan: React.FC = () => {
             }, 200);
           } else {
             // Found QR but not UPI/BharatQR
-            // console.log("Found QR but not UPI:", code.data);
+            if (!invalidQrDetected) {
+                setInvalidQrDetected(true);
+                // Clear the invalid message after 2 seconds
+                setTimeout(() => setInvalidQrDetected(false), 2000);
+            }
           }
         }
       }
     }
-  }, [navigate]);
+  }, [navigate, invalidQrDetected]);
+
+  const drawSuccessOverlay = (ctx: CanvasRenderingContext2D, location: any) => {
+      const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = location;
+      const time = Date.now() / 1000;
+      
+      // Draw filled quad
+      ctx.beginPath();
+      ctx.moveTo(topLeftCorner.x, topLeftCorner.y);
+      ctx.lineTo(topRightCorner.x, topRightCorner.y);
+      ctx.lineTo(bottomRightCorner.x, bottomRightCorner.y);
+      ctx.lineTo(bottomLeftCorner.x, bottomLeftCorner.y);
+      ctx.closePath();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#3b82f6"; // Blue 500
+      ctx.stroke();
+      
+      // Pulsing semi-transparent fill
+      const pulseOpacity = 0.1 + (Math.sin(time * 8) + 1) * 0.1; // Oscillate between 0.1 and 0.3
+      ctx.fillStyle = `rgba(59, 130, 246, ${pulseOpacity})`;
+      ctx.fill();
+  };
 
   useEffect(() => {
+    // Optimized interval: 150ms (approx 6-7 fps) is sufficient for QR scanning 
+    // and saves battery compared to 50ms.
     const interval = setInterval(() => {
       if (scanning) {
         handleScan();
       }
-    }, 50); // High refresh rate for smoother animation
+    }, 150); 
     return () => clearInterval(interval);
   }, [handleScan, scanning]);
+
+  const toggleTorch = () => {
+    const video = webcamRef.current?.video;
+    if (video && video.srcObject) {
+        const stream = video.srcObject as MediaStream;
+        const track = stream.getVideoTracks()[0];
+        
+        // Try to access capabilities if browser supports it
+        // Note: 'torch' is an advanced constraint
+        try {
+            const newStatus = !torchOn;
+            track.applyConstraints({
+                advanced: [{ torch: newStatus }]
+            } as any)
+            .then(() => setTorchOn(newStatus))
+            .catch(err => {
+                console.error("Torch error", err);
+                alert("Flashlight functionality not supported on this device/browser.");
+            });
+        } catch(e) {
+            console.error(e);
+            alert("Flashlight not supported.");
+        }
+    }
+  };
 
   // Handle Gallery Upload
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,14 +215,17 @@ export const Scan: React.FC = () => {
       <div className="absolute inset-0 z-10 flex flex-col justify-between p-6">
         {/* Header Controls */}
         <div className="flex justify-between items-center pt-4">
-           <button onClick={() => navigate(-1)} className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white">
+           <button onClick={() => navigate(-1)} className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition">
              <X size={24} />
            </button>
            <div className="flex gap-4">
-              <button className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white">
-                 <Flashlight size={24} />
+              <button 
+                onClick={toggleTorch}
+                className={`p-3 backdrop-blur-md rounded-full text-white transition ${torchOn ? 'bg-yellow-500/80 text-white' : 'bg-black/30 hover:bg-black/50'}`}
+              >
+                 {torchOn ? <Zap size={24} fill="currentColor" /> : <ZapOff size={24} />}
               </button>
-              <button className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white">
+              <button className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition">
                  <AlertCircle size={24} />
               </button>
            </div>
@@ -221,15 +233,22 @@ export const Scan: React.FC = () => {
 
         {/* Scanner Frame Guide */}
         <div className="flex-1 flex items-center justify-center pointer-events-none">
-           <div className="w-64 h-64 border border-white/20 rounded-3xl relative">
+           <div className="w-64 h-64 border border-white/20 rounded-3xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg"></div>
               <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg"></div>
               <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 -mb-1 -ml-1 rounded-bl-lg"></div>
               <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 -mb-1 -mr-1 rounded-br-lg"></div>
               
-              {/* Static Scanning Line Animation (CSS based fallback if canvas fails) */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.5)] animate-[scan_2s_ease-in-out_infinite]"></div>
+              {/* Dynamic Scanning Line Animation */}
+              <div className="absolute top-0 left-0 w-full h-2 bg-blue-400/80 shadow-[0_0_20px_rgba(59,130,246,0.8)] animate-scan-pulse"></div>
            </div>
+        </div>
+
+        {/* Invalid QR Toast */}
+        <div className={`absolute left-1/2 -translate-x-1/2 bottom-32 transition-all duration-300 ${invalidQrDetected ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+            <div className="bg-red-500/90 backdrop-blur-md text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg flex items-center gap-2">
+                <AlertCircle size={16} /> Invalid QR Code detected
+            </div>
         </div>
 
         {/* Footer Text & Controls */}
@@ -263,11 +282,15 @@ export const Scan: React.FC = () => {
       </div>
       
       <style>{`
-        @keyframes scan {
-          0% { top: 0%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { top: 100%; opacity: 0; }
+        @keyframes scan-pulse {
+          0% { top: 0%; opacity: 0; box-shadow: 0 0 5px rgba(59,130,246,0.5); }
+          15% { opacity: 1; box-shadow: 0 0 15px rgba(59,130,246,0.8); }
+          50% { box-shadow: 0 0 25px rgba(96, 165, 250, 1); }
+          85% { opacity: 1; box-shadow: 0 0 15px rgba(59,130,246,0.8); }
+          100% { top: 100%; opacity: 0; box-shadow: 0 0 5px rgba(59,130,246,0.5); }
+        }
+        .animate-scan-pulse {
+            animation: scan-pulse 2.5s ease-in-out infinite;
         }
       `}</style>
     </div>

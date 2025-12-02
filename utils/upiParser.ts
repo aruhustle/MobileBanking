@@ -1,4 +1,5 @@
 
+
 import { UPIData } from '../types';
 
 // Helper to format VPA handle into a readable name
@@ -66,6 +67,7 @@ const parseBharatQR = (data: string): UPIData | null => {
     const amount = tags['54'] || null; // Transaction Amount
     let name = tags['59'] || null; // Merchant Name
     const mcc = tags['52'] || null; // Merchant Category Code
+    const currencyCode = tags['53'] || null; // Currency Code (53)
     const txnRef = tags['62'] ? parseSubTag(tags['62'], '05') : null; // Tag 62 (Additional Data) -> 05 (Reference ID)
 
     // Fallback for missing name
@@ -80,6 +82,7 @@ const parseBharatQR = (data: string): UPIData | null => {
       tn: null, // Transaction Note often not in basic BharatQR
       tr: txnRef,
       mc: mcc,
+      cu: currencyCode === '356' ? 'INR' : currencyCode,
       rawUri: data
     };
 
@@ -146,6 +149,7 @@ export const parseUPIUri = (uri: string): UPIData | null => {
       tn: params.get('tn'),
       tr: params.get('tr'),
       mc: params.get('mc'),
+      cu: params.get('cu') || 'INR',
       rawUri: uri
     };
 
