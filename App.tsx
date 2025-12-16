@@ -101,40 +101,40 @@ const OfflineBanner: React.FC = () => {
 
   if (isSyncing) {
     return (
-      <div className="bg-blue-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 animate-pulse sticky top-0 z-50">
+      <div className="bg-blue-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 animate-pulse fixed bottom-4 left-4 right-4 rounded-lg shadow-lg z-50">
         <RefreshCw size={14} className="animate-spin" />
-        <span>Restoring connection... Syncing transactions</span>
+        <span>Syncing...</span>
       </div>
     );
   }
 
   if (syncDone) {
     return (
-      <div className="bg-green-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 sticky top-0 z-50 animate-fade-in-down">
+      <div className="bg-green-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 fixed bottom-4 left-4 right-4 rounded-lg shadow-lg z-50 animate-fade-in-up">
         <CheckCircle2 size={14} />
-        <span>Online & Synced. Your history is safe.</span>
+        <span>Online & Synced</span>
       </div>
     );
   }
 
   if (!isOnline && !dismissed) {
     return (
-      <div className="bg-gray-800 text-white text-xs py-2 px-4 flex items-center justify-between gap-2 sticky top-0 z-50 shadow-md">
+      <div className="bg-gray-800 text-white text-xs py-3 px-4 flex items-center justify-between gap-2 fixed bottom-4 left-4 right-4 rounded-xl shadow-xl z-50 animate-fade-in-up border border-gray-700">
         <div className="flex items-center gap-2">
-            <WifiOff size={14} />
-            <span>You're offline. Some features may be limited.</span>
+            <WifiOff size={16} className="text-gray-400" />
+            <span className="font-medium">You're offline</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
             <button 
                 onClick={checkConnection} 
                 disabled={isChecking}
-                className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-[10px] font-medium transition"
+                className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md text-[10px] font-bold transition"
             >
                 <RotateCcw size={10} className={isChecking ? 'animate-spin' : ''} />
-                {isChecking ? 'Checking...' : 'Retry'}
+                {isChecking ? '...' : 'RETRY'}
             </button>
-            <button onClick={() => setDismissed(true)} className="p-1 hover:bg-white/20 rounded-full">
-                <X size={14} />
+            <button onClick={() => setDismissed(true)} className="p-1 hover:bg-white/20 rounded-full text-gray-400 hover:text-white">
+                <X size={16} />
             </button>
         </div>
       </div>
@@ -149,7 +149,6 @@ const App: React.FC = () => {
     <HashRouter>
       <div className="antialiased text-gray-900 bg-gray-50 min-h-screen font-sans">
         <div className="max-w-md mx-auto min-h-screen bg-white shadow-2xl overflow-hidden relative flex flex-col">
-          <OfflineBanner />
           <div className="flex-1 relative">
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -169,14 +168,16 @@ const App: React.FC = () => {
               <Route path="/bills" element={<ProtectedRoute><BillPayments /></ProtectedRoute>} />
             </Routes>
           </div>
+          {/* Banner rendered last to float on top */}
+          <OfflineBanner />
         </div>
         <style>{`
-          @keyframes fade-in-down {
-            from { transform: translateY(-100%); }
-            to { transform: translateY(0); }
+          @keyframes fade-in-up {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
           }
-          .animate-fade-in-down {
-            animation: fade-in-down 0.3s ease-out forwards;
+          .animate-fade-in-up {
+            animation: fade-in-up 0.3s ease-out forwards;
           }
         `}</style>
       </div>

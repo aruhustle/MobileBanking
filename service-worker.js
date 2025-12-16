@@ -1,8 +1,9 @@
 
-const CACHE_NAME = 'hdfc-money-v9';
-const RUNTIME_CACHE = 'hdfc-runtime-v9';
+const CACHE_NAME = 'hdfc-money-v10';
+const RUNTIME_CACHE = 'hdfc-runtime-v10';
 
 // Core assets to cache immediately
+// NOTE: We include extensions (.tsx, .ts) to match the actual file system
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -20,37 +21,37 @@ const PRECACHE_URLS = [
   'https://aistudiocdn.com/react-router-dom@^7.9.6',
   'https://aistudiocdn.com/react-webcam@^7.2.0',
   'https://aistudiocdn.com/jsqr@^1.4.0',
-  // Local Modules (App logic)
-  '/App',
-  '/types',
-  '/utils/upiParser',
-  '/utils/historyManager',
-  '/utils/authManager',
-  '/utils/reminderManager',
-  '/utils/billManager',
-  '/utils/aiSupport',
-  '/components/Button',
-  '/components/Header',
-  '/pages/Home',
-  '/pages/Scan',
-  '/pages/ConfirmPayment',
-  '/pages/Result',
-  '/pages/ManualEntry',
-  '/pages/History',
-  '/pages/Profile',
-  '/pages/Support',
-  '/pages/ChatSupport',
-  '/pages/Login',
-  '/pages/Signup',
-  '/pages/Reminders',
-  '/pages/BillPayments',
-  '/pages/BankTransfer'
+  // Local Modules (App logic) - explicitly caching with extensions
+  '/App.tsx',
+  '/utils/upiParser.ts',
+  '/utils/historyManager.ts',
+  '/utils/authManager.ts',
+  '/utils/reminderManager.ts',
+  '/utils/billManager.ts',
+  '/utils/aiSupport.ts',
+  '/components/Button.tsx',
+  '/components/Header.tsx',
+  '/pages/Home.tsx',
+  '/pages/Scan.tsx',
+  '/pages/ConfirmPayment.tsx',
+  '/pages/Result.tsx',
+  '/pages/ManualEntry.tsx',
+  '/pages/History.tsx',
+  '/pages/Profile.tsx',
+  '/pages/Support.tsx',
+  '/pages/ChatSupport.tsx',
+  '/pages/Login.tsx',
+  '/pages/Signup.tsx',
+  '/pages/Reminders.tsx',
+  '/pages/BillPayments.tsx',
+  '/pages/BankTransfer.tsx'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
+        // We wrap each fetch in a catch so one failure doesn't stop the whole installation
         const cachePromises = PRECACHE_URLS.map(async (url) => {
             try {
                 const req = new Request(url, { mode: 'cors' });
@@ -94,44 +95,46 @@ self.addEventListener('fetch', (event) => {
     return; 
   }
 
-  // 1. Navigation Requests (HTML) - Network First, Fallback to Cache
+  // 1. Navigation Requests (HTML)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then((response) => {
-           return caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, response.clone());
-              return response;
-           });
-        })
-        .catch(() => {
-          return caches.match('/index.html');
-        })
+        .catch(() => caches.match('/index.html'))
     );
     return;
   }
 
-  // 2. Asset Requests (Stale-While-Revalidate Strategy)
-  // Check ALL caches (Precache + Runtime) first
+  // 2. Asset Requests with Smart Extension Matching
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      // Fetch from network to update cache in background (Stale-while-revalidate)
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        // Cache valid responses
-        if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 0)) {
-           const responseToCache = networkResponse.clone();
-           caches.open(RUNTIME_CACHE).then((cache) => {
-             cache.put(event.request, responseToCache);
-           });
+    (async () => {
+      // Try to find the exact request in cache
+      const exactMatch = await caches.match(event.request);
+      if (exactMatch) return exactMatch;
+
+      // If exact match fails, try appending extensions (for extension-less imports)
+      // e.g. request for '/App' looks for cached '/App.tsx'
+      if (!url.pathname.includes('.')) {
+         const tsxMatch = await caches.match(url.pathname + '.tsx');
+         if (tsxMatch) return tsxMatch;
+         
+         const tsMatch = await caches.match(url.pathname + '.ts');
+         if (tsMatch) return tsMatch;
+      }
+
+      // If not in cache, try network
+      try {
+        const networkResponse = await fetch(event.request);
+        // Save to runtime cache if successful
+        if (networkResponse && networkResponse.ok) {
+          const cache = await caches.open(RUNTIME_CACHE);
+          cache.put(event.request, networkResponse.clone());
         }
         return networkResponse;
-      }).catch((err) => {
-         // Network failed, handled by returning cachedResponse below or erroring if empty
-         // console.log('Offline fetch failed:', event.request.url);
-      });
-
-      // Return cached response immediately if available, otherwise wait for network
-      return cachedResponse || fetchPromise;
-    })
+      } catch (error) {
+        // Network failed and not in cache
+        // console.log('Fetch failed:', event.request.url);
+        // Return undefined, allowing browser to handle error
+      }
+    })()
   );
 });
