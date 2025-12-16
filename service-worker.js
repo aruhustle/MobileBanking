@@ -1,28 +1,29 @@
 
-const CACHE_NAME = 'hdfc-money-v12';
-const RUNTIME_CACHE = 'hdfc-runtime-v12';
+const CACHE_NAME = 'hdfc-money-v13';
+const RUNTIME_CACHE = 'hdfc-runtime-v13';
 
 // Core assets to cache immediately
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/index.tsx',
+  '/types.ts',  // CRITICAL: Contains runtime Enums, must be cached
   '/manifest.json',
   '/icon.png',
-  // External Dependencies - Exact Import Map Matches
+  // External Dependencies
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
   'https://aistudiocdn.com/html2canvas@^1.4.1',
   'https://aistudiocdn.com/react@^19.2.0',
-  'https://aistudiocdn.com/react@^19.2.0/jsx-runtime', // Potentially used by transpiler
+  'https://aistudiocdn.com/react@^19.2.0/jsx-runtime',
   'https://aistudiocdn.com/react-dom@^19.2.0/',
-  'https://aistudiocdn.com/react-dom@^19.2.0/client', // Critical for index.tsx startup
+  'https://aistudiocdn.com/react-dom@^19.2.0/client',
   'https://aistudiocdn.com/lucide-react@^0.555.0',
   'https://aistudiocdn.com/@google/genai@^1.30.0',
   'https://aistudiocdn.com/react-router-dom@^7.9.6',
   'https://aistudiocdn.com/react-webcam@^7.2.0',
   'https://aistudiocdn.com/jsqr@^1.4.0',
-  // Local Modules (App logic)
+  // Local Modules
   '/App.tsx',
   '/utils/upiParser.ts',
   '/utils/historyManager.ts',
@@ -54,9 +55,6 @@ self.addEventListener('install', (event) => {
       .then((cache) => {
         const cachePromises = PRECACHE_URLS.map(async (url) => {
             try {
-                // Using no-cors for generic CDNs to avoid opaque response issues if they don't support CORS (though these usually do)
-                // However, for scripts, we need CORS to execute in module workers sometimes. 
-                // We'll stick to 'cors' as these are ESM modules.
                 const req = new Request(url, { mode: 'cors' });
                 const response = await fetch(req);
                 if (response.ok) {
@@ -88,7 +86,6 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
@@ -98,7 +95,7 @@ self.addEventListener('fetch', (event) => {
     return; 
   }
 
-  // 1. Navigation Requests (HTML) - CACHE FIRST Strategy (App Shell)
+  // 1. Navigation Requests (App Shell)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       (async () => {
@@ -114,14 +111,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Asset Requests with Smart Extension Matching
+  // 2. Asset Requests
   event.respondWith(
     (async () => {
       // A. Exact Match
       const exactMatch = await caches.match(event.request);
       if (exactMatch) return exactMatch;
 
-      // B. Extension Match (for local imports like /App -> /App.tsx)
+      // B. Extension Match (e.g. /types -> /types.ts)
       if (!url.pathname.includes('.')) {
          const tsxMatch = await caches.match(url.pathname + '.tsx');
          if (tsxMatch) return tsxMatch;
@@ -130,7 +127,7 @@ self.addEventListener('fetch', (event) => {
          if (tsMatch) return tsMatch;
       }
 
-      // C. Network Fallback
+      // C. Network & Runtime Cache
       try {
         const networkResponse = await fetch(event.request);
         if (networkResponse && networkResponse.ok) {
@@ -139,9 +136,9 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       } catch (error) {
-        // D. Offline Failure
-        // Return a 503 response instead of failing to ensure the browser doesn't crash the script load
-        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+        // D. Offline Fallback
+        // Return 503 to avoid browser crashing on module fetch error
+        return new Response('Offline', { status: 503, statusText: 'Offline' });
       }
     })()
   );
