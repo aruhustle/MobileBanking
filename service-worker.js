@@ -1,6 +1,6 @@
 
-const CACHE_NAME = 'hdfc-money-v10';
-const RUNTIME_CACHE = 'hdfc-runtime-v10';
+const CACHE_NAME = 'hdfc-money-v11';
+const RUNTIME_CACHE = 'hdfc-runtime-v11';
 
 // Core assets to cache immediately
 // NOTE: We include extensions (.tsx, .ts) to match the actual file system
@@ -95,11 +95,25 @@ self.addEventListener('fetch', (event) => {
     return; 
   }
 
-  // 1. Navigation Requests (HTML)
+  // 1. Navigation Requests (HTML) - CACHE FIRST Strategy (App Shell)
+  // This ensures the app loads immediately from cache even if offline (Cold Start)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .catch(() => caches.match('/index.html'))
+      (async () => {
+        try {
+          // Always try to serve the cached index.html for any navigation request (SPA)
+          const cachedShell = await caches.match('/index.html');
+          if (cachedShell) {
+            return cachedShell;
+          }
+          // Only go to network if cache is missing (first load)
+          return await fetch(event.request);
+        } catch (error) {
+          // If network fails and no cache, fallback to trying to find index.html again 
+          // (robustness check) or fail gracefully
+          return caches.match('/index.html');
+        }
+      })()
     );
     return;
   }
@@ -131,9 +145,8 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       } catch (error) {
-        // Network failed and not in cache
-        // console.log('Fetch failed:', event.request.url);
-        // Return undefined, allowing browser to handle error
+        // Network failed and not in cache. 
+        return undefined; 
       }
     })()
   );
