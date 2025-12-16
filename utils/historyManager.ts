@@ -1,7 +1,8 @@
 
 import { Transaction } from '../types';
 
-const STORAGE_KEY = 'hdfc_history_v2'; // Version bump to force fresh seed on devices
+const STORAGE_KEY = 'hdfc_history_v2';
+const OFFLINE_QUEUE_KEY = 'hdfc_offline_queue';
 
 // Raw data provided for seeding
 const RAW_SEED_DATA = [
@@ -708,12 +709,29 @@ SEED_TRANSACTIONS.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).g
 export const getHistory = (): Transaction[] => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-       // Seed history if empty
-       localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_TRANSACTIONS));
-       return SEED_TRANSACTIONS;
+    const offlineStored = localStorage.getItem(OFFLINE_QUEUE_KEY);
+    
+    let history: Transaction[] = [];
+    let offlineQueue: Transaction[] = [];
+
+    if (stored) {
+      history = JSON.parse(stored);
+    } else {
+      // Seed if empty (existing logic)
+      history = SEED_TRANSACTIONS;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
     }
-    return JSON.parse(stored);
+
+    if (offlineStored) {
+      offlineQueue = JSON.parse(offlineStored);
+    }
+
+    // Merge: Offline queue usually contains recent items.
+    const combined = [...offlineQueue, ...history];
+    // Sort descending
+    combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    return combined;
   } catch (e) {
     console.error("Failed to load history", e);
     return SEED_TRANSACTIONS;
@@ -722,12 +740,61 @@ export const getHistory = (): Transaction[] => {
 
 export const saveTransaction = (tx: Transaction) => {
   try {
-    const history = getHistory();
-    // Add new transaction to the top of the list
-    const newHistory = [tx, ...history];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
+    if (!navigator.onLine) {
+       // Offline Mode - Save to Queue
+       const offlineStored = localStorage.getItem(OFFLINE_QUEUE_KEY);
+       const queue: Transaction[] = offlineStored ? JSON.parse(offlineStored) : [];
+       
+       const offlineTx = { ...tx, isOffline: true };
+       const newQueue = [offlineTx, ...queue];
+       
+       localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(newQueue));
+    } else {
+       // Online Mode - Save to Main History
+       const stored = localStorage.getItem(STORAGE_KEY);
+       const history: Transaction[] = stored ? JSON.parse(stored) : SEED_TRANSACTIONS;
+       const newHistory = [tx, ...history];
+       localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
+    }
+    // Notify UI to update
+    window.dispatchEvent(new Event('transaction_updated'));
   } catch (e) {
     console.error("Failed to save transaction", e);
+  }
+};
+
+export const syncOfflineTransactions = () => {
+  try {
+    const offlineStored = localStorage.getItem(OFFLINE_QUEUE_KEY);
+    if (!offlineStored) return 0;
+
+    const queue: Transaction[] = JSON.parse(offlineStored);
+    if (queue.length === 0) return 0;
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+    let history: Transaction[] = stored ? JSON.parse(stored) : SEED_TRANSACTIONS;
+
+    // Mark as synced (remove isOffline flag)
+    const syncedQueue = queue.map(tx => {
+        const { isOffline, ...rest } = tx;
+        return rest as Transaction;
+    });
+
+    history = [...syncedQueue, ...history];
+    
+    // Sort
+    history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    localStorage.removeItem(OFFLINE_QUEUE_KEY);
+    
+    // Notify UI to update
+    window.dispatchEvent(new Event('transaction_updated'));
+
+    return queue.length;
+  } catch (e) {
+    console.error("Sync failed", e);
+    return 0;
   }
 };
 

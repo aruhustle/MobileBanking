@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Scan, Send, History, Bell, User, Receipt, Contact as ContactIcon, Landmark } from 'lucide-react';
+import { Scan, Send, History, Bell, User, Receipt, Contact as ContactIcon, Landmark, UserCheck } from 'lucide-react';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
 import { getRecentPayees } from '../utils/historyManager';
+import { getCurrentUser } from '../utils/authManager';
 
 interface Contact {
   id: string;
@@ -27,6 +28,21 @@ export const Home: React.FC = () => {
             initialName: contact.name 
         }
     });
+  };
+
+  const handleSelfTransfer = () => {
+    const user = getCurrentUser();
+    if (user) {
+        navigate('/manual', { 
+            state: { 
+                initialVpa: user.vpa, 
+                initialName: `${user.name} (Self)`,
+                initialAmount: '' 
+            }
+        });
+    } else {
+        navigate('/login');
+    }
   };
 
   const pickContact = async () => {
@@ -161,6 +177,19 @@ export const Home: React.FC = () => {
               </div>
               <span className="text-xs text-gray-600 font-medium text-center truncate w-full px-1">
                 To Bank
+              </span>
+            </button>
+
+            {/* To Self Button */}
+            <button 
+              className="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 focus:outline-none"
+              onClick={handleSelfTransfer}
+            >
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold bg-purple-50 text-purple-600 border border-purple-100">
+                 <UserCheck size={24} />
+              </div>
+              <span className="text-xs text-gray-600 font-medium text-center truncate w-full px-1">
+                To Self
               </span>
             </button>
 

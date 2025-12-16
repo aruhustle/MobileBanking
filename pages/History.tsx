@@ -1,11 +1,10 @@
 
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components/Header';
 import { getHistory, formatDate, formatCurrency } from '../utils/historyManager';
 import { Transaction } from '../types';
-import { Calendar, MessageSquare, ChevronRight, Hash, CheckCircle2, XCircle, Clock, Search, Filter, ArrowDownLeft, ArrowUpRight, MapPin, Copy, Share2, HelpCircle, X, Landmark } from 'lucide-react';
+import { Calendar, MessageSquare, ChevronRight, Hash, CheckCircle2, XCircle, Clock, Search, Filter, ArrowDownLeft, ArrowUpRight, MapPin, Copy, Share2, HelpCircle, X, Landmark, CloudOff } from 'lucide-react';
 import { Button } from '../components/Button';
 
 export const History: React.FC = () => {
@@ -19,9 +18,17 @@ export const History: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SUCCESS' | 'FAILURE'>('ALL');
 
   useEffect(() => {
-    const history = getHistory();
-    setAllTransactions(history);
-    setFilteredTransactions(history);
+    const loadTransactions = () => {
+        const history = getHistory();
+        setAllTransactions(history);
+        setFilteredTransactions(history); // Reset filter on load
+    };
+
+    loadTransactions();
+
+    // Listen for updates (e.g. sync completion or new offline tx)
+    window.addEventListener('transaction_updated', loadTransactions);
+    return () => window.removeEventListener('transaction_updated', loadTransactions);
   }, []);
 
   useEffect(() => {
@@ -118,7 +125,7 @@ export const History: React.FC = () => {
                 <div 
                   key={tx.id} 
                   onClick={() => handleTransactionClick(tx)}
-                  className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer hover:shadow-md"
+                  className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer hover:shadow-md relative"
                 >
                   <div className="flex items-center justify-between">
                       {/* Left Side: Icon & Payee */}
@@ -142,9 +149,16 @@ export const History: React.FC = () => {
                           <p className={`font-bold text-base ${isCredit ? 'text-green-600' : 'text-gray-900'}`}>
                             {isCredit ? '+' : '-'} ₹{formatCurrency(tx.am)}
                           </p>
-                          <div className={`flex items-center justify-end gap-1 text-xs font-medium px-2 py-0.5 rounded-full mt-1 w-fit ml-auto ${getStatusColor(tx.status)}`}>
-                              {getStatusIcon(tx.status)}
-                              <span>{tx.status}</span>
+                          <div className="flex items-center justify-end gap-2 mt-1">
+                              {tx.isOffline && (
+                                  <span className="flex items-center gap-1 text-[10px] text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded-full border border-orange-100">
+                                      <CloudOff size={10} /> Saved Offline
+                                  </span>
+                              )}
+                              <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${getStatusColor(tx.status)}`}>
+                                  {getStatusIcon(tx.status)}
+                                  <span>{tx.status}</span>
+                              </div>
                           </div>
                       </div>
                   </div>
@@ -197,6 +211,11 @@ export const History: React.FC = () => {
                      </div>
                      <p className="text-gray-500 text-sm mb-1">{selectedTx.status === 'SUCCESS' ? 'Payment Successful' : 'Payment Failed'}</p>
                      <h2 className="text-3xl font-bold text-gray-900">₹{formatCurrency(selectedTx.am)}</h2>
+                     {selectedTx.isOffline && (
+                        <p className="text-xs text-orange-500 font-medium mt-1 flex items-center justify-center gap-1">
+                            <CloudOff size={12} /> Pending Sync
+                        </p>
+                     )}
                  </div>
 
                  {/* Key Details */}

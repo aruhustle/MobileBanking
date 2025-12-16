@@ -1,5 +1,4 @@
 
-
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +10,7 @@ export const Scan: React.FC = () => {
   const navigate = useNavigate();
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const processingCanvasRef = useRef<HTMLCanvasElement | null>(null); // Reusable canvas for processing
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(true);
   const [invalidQrDetected, setInvalidQrDetected] = useState(false);
@@ -24,17 +24,28 @@ export const Scan: React.FC = () => {
 
     const video = webcamRef.current.video;
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      // 1. Prepare Canvas
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
+      // 1. Prepare Processing Canvas (Reuse to save memory)
+      if (!processingCanvasRef.current) {
+         processingCanvasRef.current = document.createElement('canvas');
+      }
+      const canvas = processingCanvasRef.current;
+      
+      // Only resize if dimensions changed
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+         canvas.width = video.videoWidth;
+         canvas.height = video.videoHeight;
+      }
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
       // 2. Prepare Overlay Canvas for Visual Feedback
       const overlayCtx = overlayCanvasRef.current?.getContext('2d');
       if (overlayCanvasRef.current && overlayCtx) {
-          overlayCanvasRef.current.width = video.videoWidth;
-          overlayCanvasRef.current.height = video.videoHeight;
+          // Sync overlay size with video
+          if (overlayCanvasRef.current.width !== video.videoWidth || overlayCanvasRef.current.height !== video.videoHeight) {
+              overlayCanvasRef.current.width = video.videoWidth;
+              overlayCanvasRef.current.height = video.videoHeight;
+          }
           overlayCtx.clearRect(0, 0, video.videoWidth, video.videoHeight);
       }
       
@@ -97,8 +108,7 @@ export const Scan: React.FC = () => {
   };
 
   useEffect(() => {
-    // Optimized interval: 150ms (approx 6-7 fps) is sufficient for QR scanning 
-    // and saves battery compared to 50ms.
+    // Optimized interval: 150ms is sufficient for QR scanning and lighter on battery
     const interval = setInterval(() => {
       if (scanning) {
         handleScan();
@@ -114,7 +124,6 @@ export const Scan: React.FC = () => {
         const track = stream.getVideoTracks()[0];
         
         // Try to access capabilities if browser supports it
-        // Note: 'torch' is an advanced constraint
         try {
             const newStatus = !torchOn;
             track.applyConstraints({
@@ -145,7 +154,7 @@ export const Scan: React.FC = () => {
         const canvas = document.createElement('canvas');
         canvas.width = img.width;
         canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           ctx.drawImage(img, 0, 0);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -180,7 +189,9 @@ export const Scan: React.FC = () => {
   };
 
   const videoConstraints = {
-    facingMode: "environment"
+    facingMode: "environment",
+    width: { ideal: 720 }, // Limit resolution to avoid processing lag on mobile
+    height: { ideal: 1280 }
   };
 
   return (
@@ -202,7 +213,8 @@ export const Scan: React.FC = () => {
           screenshotFormat="image/jpeg"
           videoConstraints={videoConstraints}
           className="h-full w-full object-cover"
-          onUserMediaError={(e) => setError("Camera access denied or not available.")}
+          playsInline={true} // Critical for iOS/Android inline playback
+          onUserMediaError={(e) => setError("Camera access denied or not available. Ensure you are using HTTPS.")}
         />
         {/* Canvas for Drawing Bounding Box */}
         <canvas 
@@ -275,7 +287,7 @@ export const Scan: React.FC = () => {
                 onClick={simulateScan}
                 className="bg-red-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-lg"
               >
-                Dev: Simulate Scan
+                Dev: Simulate Scan (Camera Error)
               </button>
            )}
         </div>

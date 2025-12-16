@@ -36,6 +36,7 @@ export interface Transaction {
     accNo: string;
     ifsc: string;
   };
+  isOffline?: boolean;
 }
 
 export enum PaymentStatus {
