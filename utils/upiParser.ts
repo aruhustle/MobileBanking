@@ -1,5 +1,4 @@
 
-
 import { UPIData } from '../types';
 
 // Helper to format VPA handle into a readable name
@@ -18,6 +17,29 @@ const deriveNameFromVPA = (vpa: string): string => {
   }
 };
 
+// Helper to parse Additional Data (Tag 62) in BharatQR
+const parseAdditionalData = (tlv: string) => {
+  const data: Record<string, string> = {};
+  let i = 0;
+  while (i < tlv.length) {
+    // Sub-tag ID (2 chars)
+    const id = tlv.substring(i, i + 2);
+    // Length (2 chars)
+    const len = parseInt(tlv.substring(i + 2, i + 4), 10);
+    if (isNaN(len)) break;
+    // Value
+    const val = tlv.substring(i + 4, i + 4 + len);
+    
+    if (id === '01') data.billNumber = val;
+    if (id === '05') data.referenceId = val;
+    if (id === '07') data.terminalId = val;
+    if (id === '08') data.storeId = val;
+    
+    i += 4 + len;
+  }
+  return data;
+};
+
 // Helper to parse EMV TLV data
 const parseBharatQR = (data: string): UPIData | null => {
   try {
@@ -30,21 +52,18 @@ const parseBharatQR = (data: string): UPIData | null => {
     while (index < data.length) {
       const id = data.substring(index, index + 2);
       const length = parseInt(data.substring(index + 2, index + 4), 10);
+      if (isNaN(length)) break;
       const value = data.substring(index + 4, index + 4 + length);
       
       tags[id] = value;
       index += 4 + length;
     }
 
-    // Extract fields based on EMVCo and NPCI specs
     // Tag 26-51: Merchant Account Information. 
-    // In India, Tag 26 is often used for UPI. Inside 26, Subtag 01 is usually the VPA.
+    // Tag 26 is specifically reserved for UPI in India.
     let vpa = null;
-    
-    // Check Tag 26 for VPA (common in BharatQR)
     if (tags['26']) {
        const merchantInfo = tags['26'];
-       // Parse sub-tags
        let subIndex = 0;
        while (subIndex < merchantInfo.length) {
          const subId = merchantInfo.substring(subIndex, subIndex + 2);
@@ -59,16 +78,28 @@ const parseBharatQR = (data: string): UPIData | null => {
        }
     }
 
-    // Fallback: sometimes VPA is directly in other merchant tags or custom tags depending on aggregator
-    // For this demo, we rely on Tag 26 -> 01.
-
     if (!vpa) return null; // Minimal requirement
 
     const amount = tags['54'] || null; // Transaction Amount
     let name = tags['59'] || null; // Merchant Name
     const mcc = tags['52'] || null; // Merchant Category Code
-    const currencyCode = tags['53'] || null; // Currency Code (53)
-    const txnRef = tags['62'] ? parseSubTag(tags['62'], '05') : null; // Tag 62 (Additional Data) -> 05 (Reference ID)
+    
+    // Tag 53: Transaction Currency Code (ISO 4217)
+    // 356 = INR
+    const currencyCode = tags['53'];
+    let currency = 'INR';
+    if (currencyCode === '356') currency = 'INR';
+    else if (currencyCode) currency = currencyCode; // Use raw if not 356
+
+    // Tag 62: Additional Data Template
+    let txnRef = null;
+    let billNumber = null;
+    
+    if (tags['62']) {
+        const additional = parseAdditionalData(tags['62']);
+        txnRef = additional.referenceId || null;
+        billNumber = additional.billNumber || null;
+    }
 
     // Fallback for missing name
     if (!name && vpa) {
@@ -79,10 +110,10 @@ const parseBharatQR = (data: string): UPIData | null => {
       pa: vpa,
       pn: name,
       am: amount,
-      tn: null, // Transaction Note often not in basic BharatQR
+      tn: billNumber ? `Bill: ${billNumber}` : null, // Use bill number as note if available
       tr: txnRef,
       mc: mcc,
-      cu: currencyCode === '356' ? 'INR' : currencyCode,
+      cu: currency,
       rawUri: data
     };
 
@@ -92,64 +123,57 @@ const parseBharatQR = (data: string): UPIData | null => {
   }
 };
 
-const parseSubTag = (tlvString: string, targetId: string): string | null => {
-   let index = 0;
-   while(index < tlvString.length) {
-      const id = tlvString.substring(index, index + 2);
-      const len = parseInt(tlvString.substring(index + 2, index + 4), 10);
-      const val = tlvString.substring(index + 4, index + 4 + len);
-      if (id === targetId) return val;
-      index += 4 + len;
-   }
-   return null;
-}
-
 export const parseUPIUri = (uri: string): UPIData | null => {
   if (!uri) return null;
 
   // Check if it's a Bharat QR (EMV TLV) string
-  // These are typically long numeric strings starting with '00'
   if (/^\d+$/.test(uri) || uri.startsWith('00')) {
       const bharatQrData = parseBharatQR(uri);
       if (bharatQrData) return bharatQrData;
   }
 
-  // Basic check for upi:// scheme
-  if (!uri.toLowerCase().startsWith('upi://pay')) {
-    // It might be a raw string or BharatQR, but for this web demo we focus on standard URIs
-    // If it doesn't start with upi://, we try to treat it as query params if it contains "pa="
-    if (!uri.includes('pa=')) {
-        return null;
-    }
+  // Basic check for upi:// scheme, but remain flexible for raw params
+  const lowerUri = uri.toLowerCase();
+  
+  // Try to extract query string
+  let queryString = '';
+  if (lowerUri.includes('?')) {
+      queryString = uri.split('?')[1];
+  } else if (lowerUri.includes('pa=')) {
+      // It might be just the query params
+      queryString = uri;
+  } else {
+      return null; 
   }
 
   try {
-    // Create a dummy URL to leverage URLSearchParams if possible, 
-    // or manual parsing if the scheme causes issues in some browsers.
-    const queryString = uri.split('?')[1];
-    if (!queryString) return null;
-
     const params = new URLSearchParams(queryString);
+    
+    const pa = params.get('pa');
+    if (!pa) return null; // VPA is mandatory
 
     let pn = params.get('pn');
-    const pa = params.get('pa');
-
-    // VPA is mandatory for a valid UPI intent
-    if (!pa) return null;
-
-    // Fallback if pn is missing
     if (!pn) {
       pn = deriveNameFromVPA(pa);
     }
+
+    // Extract aliases
+    // tr = Transaction Reference ID
+    // tid = Transaction ID (often used interchangeably in simple QR gens)
+    const tr = params.get('tr') || params.get('tid');
+    
+    // mc = Merchant Category Code
+    // mcc = Common alias
+    const mc = params.get('mc') || params.get('mcc');
 
     const data: UPIData = {
       pa: pa,
       pn: pn,
       am: params.get('am'),
       tn: params.get('tn'),
-      tr: params.get('tr'),
-      mc: params.get('mc'),
-      cu: params.get('cu') || 'INR',
+      tr: tr,
+      mc: mc,
+      cu: params.get('cu') || params.get('curr') || 'INR',
       rawUri: uri
     };
 

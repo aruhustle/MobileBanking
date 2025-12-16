@@ -2,7 +2,7 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { useNavigate } from 'react-router-dom';
-import { X, Image as ImageIcon, AlertCircle, Zap, ZapOff, RefreshCcw, Lock } from 'lucide-react';
+import { X, Image as ImageIcon, AlertCircle, Zap, ZapOff, RefreshCcw, Lock, Camera } from 'lucide-react';
 import jsQR from 'jsqr';
 import { parseUPIUri } from '../utils/upiParser';
 
@@ -13,7 +13,8 @@ export const Scan: React.FC = () => {
   const processingCanvasRef = useRef<HTMLCanvasElement | null>(null);
   
   const [error, setError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(true);
+  const [scanning, setScanning] = useState(false); // Default to false
+  const [cameraActive, setCameraActive] = useState(false); // New state to control webcam mounting
   const [invalidQrDetected, setInvalidQrDetected] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   
@@ -30,6 +31,12 @@ export const Scan: React.FC = () => {
         setError("Camera requires a secure HTTPS connection.");
     }
   }, []);
+
+  const startCamera = () => {
+    setError(null);
+    setCameraActive(true);
+    setScanning(true);
+  };
 
   const handleScan = useCallback(() => {
     if (!webcamRef.current || !webcamRef.current.video) return;
@@ -102,10 +109,10 @@ export const Scan: React.FC = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (scanning && !error) handleScan();
+      if (scanning && cameraActive && !error) handleScan();
     }, 150); 
     return () => clearInterval(interval);
-  }, [handleScan, scanning, error]);
+  }, [handleScan, scanning, error, cameraActive]);
 
   const toggleTorch = () => {
     const video = webcamRef.current?.video;
@@ -198,7 +205,23 @@ export const Scan: React.FC = () => {
       />
 
       <div className="absolute inset-0 z-0 bg-gray-900 flex items-center justify-center">
-        {!error ? (
+        {!cameraActive ? (
+            <div className="text-center p-6 z-20">
+                <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(37,99,235,0.5)]">
+                    <Camera size={40} className="text-white" />
+                </div>
+                <h3 className="text-white text-xl font-bold mb-2">Enable Camera</h3>
+                <p className="text-gray-400 text-sm mb-8 max-w-xs mx-auto">
+                    Tap below to start scanning QR codes for payment.
+                </p>
+                <button 
+                    onClick={startCamera}
+                    className="bg-white text-blue-900 px-8 py-3 rounded-full font-bold text-lg active:scale-95 transition-transform"
+                >
+                    Tap to Start
+                </button>
+            </div>
+        ) : !error ? (
             <Webcam
                 key={activeFacingMode} // Force remount on camera switch
                 audio={false}
@@ -210,35 +233,41 @@ export const Scan: React.FC = () => {
                 onUserMediaError={handleCameraError}
             />
         ) : null}
-        <canvas 
-            ref={overlayCanvasRef}
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-        />
+        
+        {cameraActive && !error && (
+            <canvas 
+                ref={overlayCanvasRef}
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+        )}
       </div>
 
-      <div className="absolute inset-0 z-10 flex flex-col justify-between p-6">
-        <div className="flex justify-between items-center pt-4">
+      <div className="absolute inset-0 z-10 flex flex-col justify-between p-6 pointer-events-none">
+        <div className="flex justify-between items-center pt-4 pointer-events-auto">
            <button onClick={() => navigate(-1)} className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition">
              <X size={24} />
            </button>
-           <div className="flex gap-4">
-              <button 
-                onClick={switchCamera}
-                className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition"
-              >
-                 <RefreshCcw size={24} />
-              </button>
-              <button 
-                onClick={toggleTorch}
-                className={`p-3 backdrop-blur-md rounded-full text-white transition ${torchOn ? 'bg-yellow-500/80 text-white' : 'bg-black/30 hover:bg-black/50'}`}
-              >
-                 {torchOn ? <Zap size={24} fill="currentColor" /> : <ZapOff size={24} />}
-              </button>
-           </div>
+           
+           {cameraActive && (
+             <div className="flex gap-4">
+                <button 
+                  onClick={switchCamera}
+                  className="p-3 bg-black/30 backdrop-blur-md rounded-full text-white hover:bg-black/50 transition"
+                >
+                   <RefreshCcw size={24} />
+                </button>
+                <button 
+                  onClick={toggleTorch}
+                  className={`p-3 backdrop-blur-md rounded-full text-white transition ${torchOn ? 'bg-yellow-500/80 text-white' : 'bg-black/30 hover:bg-black/50'}`}
+                >
+                   {torchOn ? <Zap size={24} fill="currentColor" /> : <ZapOff size={24} />}
+                </button>
+             </div>
+           )}
         </div>
 
-        {error ? (
-             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
+        {error && cameraActive && (
+             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in pointer-events-auto">
                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center text-red-500 mb-4">
                      {error.includes("HTTPS") ? <Lock size={32}/> : <AlertCircle size={32} />}
                  </div>
@@ -260,8 +289,10 @@ export const Scan: React.FC = () => {
                     </button>
                  </div>
              </div>
-        ) : (
-            <div className="flex-1 flex items-center justify-center pointer-events-none">
+        )}
+
+        {cameraActive && !error && (
+            <div className="flex-1 flex items-center justify-center">
                 <div className="w-64 h-64 border border-white/20 rounded-3xl relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 -mt-1 -ml-1 rounded-tl-lg"></div>
                     <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 -mt-1 -mr-1 rounded-tr-lg"></div>
@@ -278,8 +309,8 @@ export const Scan: React.FC = () => {
             </div>
         </div>
 
-        <div className="text-center pb-8 space-y-4">
-           {!error && (
+        <div className="text-center pb-8 space-y-4 pointer-events-auto">
+           {cameraActive && !error && (
                <p className="text-white/80 text-sm font-medium bg-black/20 py-1 px-3 rounded-full inline-block backdrop-blur-sm">
                 Scan UPI or Bharat QR to pay
                </p>
