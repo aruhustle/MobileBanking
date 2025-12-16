@@ -101,7 +101,7 @@ const OfflineBanner: React.FC = () => {
 
   if (isSyncing) {
     return (
-      <div className="bg-blue-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 animate-pulse fixed top-0 left-0 right-0 z-50">
+      <div className="bg-blue-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 animate-pulse sticky top-0 z-50">
         <RefreshCw size={14} className="animate-spin" />
         <span>Restoring connection... Syncing transactions</span>
       </div>
@@ -110,7 +110,7 @@ const OfflineBanner: React.FC = () => {
 
   if (syncDone) {
     return (
-      <div className="bg-green-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 fixed top-0 left-0 right-0 z-50 animate-fade-in-down">
+      <div className="bg-green-600 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 sticky top-0 z-50 animate-fade-in-down">
         <CheckCircle2 size={14} />
         <span>Online & Synced. Your history is safe.</span>
       </div>
@@ -119,7 +119,7 @@ const OfflineBanner: React.FC = () => {
 
   if (!isOnline && !dismissed) {
     return (
-      <div className="bg-gray-800 text-white text-xs py-2 px-4 flex items-center justify-between gap-2 fixed top-0 left-0 right-0 z-50 shadow-md">
+      <div className="bg-gray-800 text-white text-xs py-2 px-4 flex items-center justify-between gap-2 sticky top-0 z-50 shadow-md">
         <div className="flex items-center gap-2">
             <WifiOff size={14} />
             <span>You're offline. Some features may be limited.</span>
@@ -148,25 +148,27 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <div className="antialiased text-gray-900 bg-gray-50 min-h-screen font-sans">
-        <div className="max-w-md mx-auto min-h-screen bg-white shadow-2xl overflow-hidden relative">
+        <div className="max-w-md mx-auto min-h-screen bg-white shadow-2xl overflow-hidden relative flex flex-col">
           <OfflineBanner />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            
-            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-            <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
-            <Route path="/confirm" element={<ProtectedRoute><ConfirmPayment /></ProtectedRoute>} />
-            <Route path="/result" element={<ProtectedRoute><Result /></ProtectedRoute>} />
-            <Route path="/manual" element={<ProtectedRoute><ManualEntry /></ProtectedRoute>} />
-            <Route path="/bank-transfer" element={<ProtectedRoute><BankTransfer /></ProtectedRoute>} />
-            <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
-            <Route path="/chat-support" element={<ProtectedRoute><ChatSupport /></ProtectedRoute>} />
-            <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
-            <Route path="/bills" element={<ProtectedRoute><BillPayments /></ProtectedRoute>} />
-          </Routes>
+          <div className="flex-1 relative">
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              
+              <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/scan" element={<ProtectedRoute><Scan /></ProtectedRoute>} />
+              <Route path="/confirm" element={<ProtectedRoute><ConfirmPayment /></ProtectedRoute>} />
+              <Route path="/result" element={<ProtectedRoute><Result /></ProtectedRoute>} />
+              <Route path="/manual" element={<ProtectedRoute><ManualEntry /></ProtectedRoute>} />
+              <Route path="/bank-transfer" element={<ProtectedRoute><BankTransfer /></ProtectedRoute>} />
+              <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+              <Route path="/chat-support" element={<ProtectedRoute><ChatSupport /></ProtectedRoute>} />
+              <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
+              <Route path="/bills" element={<ProtectedRoute><BillPayments /></ProtectedRoute>} />
+            </Routes>
+          </div>
         </div>
         <style>{`
           @keyframes fade-in-down {

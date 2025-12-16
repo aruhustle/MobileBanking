@@ -1,15 +1,15 @@
 
-const CACHE_NAME = 'hdfc-money-v7';
-const RUNTIME_CACHE = 'hdfc-runtime-v7';
+const CACHE_NAME = 'hdfc-money-v8';
+const RUNTIME_CACHE = 'hdfc-runtime-v8';
 
 // Core assets to cache immediately
 const PRECACHE_URLS = [
   '/',
   '/index.html',
-  '/index.tsx', // Entry point
+  '/index.tsx',
   '/manifest.json',
   '/icon.png',
-  // External Dependencies from importmap
+  // External Dependencies
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
   'https://aistudiocdn.com/html2canvas@^1.4.1',
@@ -19,7 +19,32 @@ const PRECACHE_URLS = [
   'https://aistudiocdn.com/@google/genai@^1.30.0',
   'https://aistudiocdn.com/react-router-dom@^7.9.6',
   'https://aistudiocdn.com/react-webcam@^7.2.0',
-  'https://aistudiocdn.com/jsqr@^1.4.0'
+  'https://aistudiocdn.com/jsqr@^1.4.0',
+  // Local Modules (App logic)
+  '/App',
+  '/types',
+  '/utils/upiParser',
+  '/utils/historyManager',
+  '/utils/authManager',
+  '/utils/reminderManager',
+  '/utils/billManager',
+  '/utils/aiSupport',
+  '/components/Button',
+  '/components/Header',
+  '/pages/Home',
+  '/pages/Scan',
+  '/pages/ConfirmPayment',
+  '/pages/Result',
+  '/pages/ManualEntry',
+  '/pages/History',
+  '/pages/Profile',
+  '/pages/Support',
+  '/pages/ChatSupport',
+  '/pages/Login',
+  '/pages/Signup',
+  '/pages/Reminders',
+  '/pages/BillPayments',
+  '/pages/BankTransfer'
 ];
 
 self.addEventListener('install', (event) => {
@@ -97,7 +122,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         }).catch((err) => {
-           console.log('Offline fetch failed:', event.request.url);
+           // Network failed, nothing to do if not in cache
         });
 
         return cachedResponse || fetchPromise;
