@@ -40,7 +40,7 @@ const parseAdditionalData = (tlv: string) => {
   return data;
 };
 
-// Helper to parse EMV TLV data
+// Helper to parse EMV TLV data (BharatQR)
 const parseBharatQR = (data: string): UPIData | null => {
   try {
     // EMV QR codes usually start with '00' (Payload Format Indicator)
@@ -91,6 +91,15 @@ const parseBharatQR = (data: string): UPIData | null => {
     if (currencyCode === '356') currency = 'INR';
     else if (currencyCode) currency = currencyCode; // Use raw if not 356
 
+    // Tag 58: Country Code (ISO 3166-1 alpha-2) e.g., 'IN'
+    const country = tags['58'] || 'IN';
+
+    // Tag 60: Merchant City
+    const city = tags['60'] || null;
+
+    // Tag 61: Postal Code
+    const postalCode = tags['61'] || null;
+
     // Tag 62: Additional Data Template
     let txnRef = null;
     let billNumber = null;
@@ -114,6 +123,11 @@ const parseBharatQR = (data: string): UPIData | null => {
       tr: txnRef,
       mc: mcc,
       cu: currency,
+      merchantDetails: {
+        city: city || undefined,
+        country: country || undefined,
+        postalCode: postalCode || undefined
+      },
       rawUri: data
     };
 

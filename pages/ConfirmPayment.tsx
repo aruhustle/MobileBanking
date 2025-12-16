@@ -1,11 +1,10 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { UPIData, Transaction } from '../types';
 import { Header } from '../components/Header';
 import { Button } from '../components/Button';
-import { CheckCircle2, Building2, MessageSquare, Lock, X, AlertCircle, ChevronRight, Fingerprint, ScanFace, Landmark } from 'lucide-react';
+import { CheckCircle2, Building2, MessageSquare, Lock, X, AlertCircle, ChevronRight, Fingerprint, ScanFace, Landmark, MapPin } from 'lucide-react';
 import { saveTransaction } from '../utils/historyManager';
 import { deductBalance, getCurrentUser } from '../utils/authManager';
 
@@ -208,11 +207,12 @@ export const ConfirmPayment: React.FC = () => {
       <div className="flex-1 p-6 flex flex-col items-center pt-10 relative">
         
         {/* Payee Info */}
-        <div className="text-center mb-8 animate-fade-in">
-          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-700 font-bold text-3xl">
+        <div className="text-center mb-8 animate-fade-in w-full">
+          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-700 font-bold text-3xl shadow-sm">
              {isBankTransfer ? <Landmark size={40} /> : (data.pn || data.pa || '?').charAt(0).toUpperCase()}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">{data.pn || 'Unknown Merchant'}</h2>
+          
+          <h2 className="text-2xl font-bold text-gray-900 truncate max-w-xs mx-auto">{data.pn || 'Unknown Merchant'}</h2>
           
           {isBankTransfer ? (
             <div className="mt-1 flex flex-col items-center">
@@ -220,10 +220,18 @@ export const ConfirmPayment: React.FC = () => {
                <p className="text-gray-400 text-xs font-mono">{data.bankDetails?.ifsc}</p>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm mt-1 font-mono">{data.pa}</p>
+            <div className="flex flex-col items-center">
+                <p className="text-gray-500 text-sm mt-1 font-mono">{data.pa}</p>
+                {data.merchantDetails?.city && (
+                    <div className="flex items-center gap-1 text-gray-400 text-xs mt-1">
+                        <MapPin size={12} />
+                        <span>{data.merchantDetails.city}, {data.merchantDetails.country || 'IN'}</span>
+                    </div>
+                )}
+            </div>
           )}
           
-          <div className="mt-2 flex items-center justify-center gap-1 text-green-600 text-xs font-medium bg-green-50 py-1 px-2 rounded-md inline-flex">
+          <div className="mt-3 flex items-center justify-center gap-1 text-green-600 text-xs font-medium bg-green-50 py-1 px-3 rounded-full inline-flex border border-green-100">
             <CheckCircle2 size={14} />
             <span>Verified {isBankTransfer ? 'Account' : 'Merchant'}</span>
           </div>
@@ -249,21 +257,21 @@ export const ConfirmPayment: React.FC = () => {
 
         {/* Note Input */}
         <div className="w-full max-w-xs mb-8">
-           <div className="bg-gray-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+           <div className="bg-gray-100 rounded-2xl px-4 py-3 flex items-center gap-3 border border-transparent focus-within:border-blue-500 focus-within:bg-blue-50 transition-colors">
               <MessageSquare size={20} className="text-gray-500" />
               <input 
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Add a note for this payment"
-                className="bg-transparent border-none focus:outline-none text-sm w-full text-gray-700"
+                className="bg-transparent border-none focus:outline-none text-sm w-full text-gray-700 placeholder-gray-400"
               />
            </div>
         </div>
 
         {/* Bank Selector */}
         <div className="w-full max-w-xs mb-auto">
-           <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition">
+           <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition shadow-sm">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-white border border-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
                         <img 
@@ -299,15 +307,15 @@ export const ConfirmPayment: React.FC = () => {
              fullWidth 
              onClick={handlePayClick} 
              disabled={!amount || parseFloat(amount) <= 0}
-             className="bg-blue-800 hover:bg-blue-900"
+             className="bg-blue-800 hover:bg-blue-900 shadow-lg shadow-blue-800/20"
            >
              Proceed to Pay ₹{amount || '0'}
            </Button>
         </div>
         
         <div className="text-center pb-4">
-           <p className="text-[10px] text-gray-400">
-             Processed securely via HDFC Bank.
+           <p className="text-[10px] text-gray-400 flex items-center justify-center gap-1">
+             <Lock size={10} /> Processed securely via HDFC Bank.
            </p>
         </div>
       </div>
@@ -349,10 +357,17 @@ export const ConfirmPayment: React.FC = () => {
                            <span className="text-gray-400">{data.bankDetails?.ifsc}</span>
                        </p>
                    ) : (
-                       <p className="text-xs font-mono text-gray-600 break-all">{data.pa}</p>
+                       <div>
+                           <p className="text-xs font-mono text-gray-600 break-all">{data.pa}</p>
+                           {data.merchantDetails?.city && (
+                               <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-1">
+                                   <MapPin size={10} /> {data.merchantDetails.city}
+                               </p>
+                           )}
+                       </div>
                    )}
                 </div>
-                <div className="bg-blue-50 p-3 rounded-xl space-y-1 text-center">
+                <div className="bg-blue-50 p-3 rounded-xl space-y-1 text-center border border-blue-100">
                    <p className="text-xs text-blue-600 uppercase font-semibold">Amount</p>
                    <p className="text-2xl font-bold text-blue-800">₹{amount}</p>
                 </div>

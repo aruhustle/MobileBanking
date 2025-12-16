@@ -1,5 +1,4 @@
 
-
 export interface UPIData {
   pa: string | null; // Payee Address (VPA)
   pn: string | null; // Payee Name
@@ -9,6 +8,11 @@ export interface UPIData {
   mc: string | null; // Merchant Category Code
   cu?: string | null; // Currency Code
   rawUri: string;
+  merchantDetails?: {
+    city?: string;
+    country?: string;
+    postalCode?: string;
+  };
   bankDetails?: {
     accNo: string;
     ifsc: string;
