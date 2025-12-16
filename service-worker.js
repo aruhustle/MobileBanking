@@ -1,15 +1,15 @@
 
-const CACHE_NAME = 'hdfc-money-v5';
-const RUNTIME_CACHE = 'hdfc-runtime-v5';
+const CACHE_NAME = 'hdfc-money-v7';
+const RUNTIME_CACHE = 'hdfc-runtime-v7';
 
-// 1. Install Phase: Cache only the absolute essentials we KNOW exist.
-// We removed specific .tsx files from here because in production (Vercel), 
-// the build process might convert them to .js files with hashes, causing the install to fail.
+// Core assets to cache immediately
 const PRECACHE_URLS = [
   '/',
   '/index.html',
+  '/index.tsx', // Entry point
   '/manifest.json',
-  // External CDNs are stable, so we pre-cache them to speed up first load
+  '/icon.png',
+  // External Dependencies from importmap
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
   'https://aistudiocdn.com/html2canvas@^1.4.1',
@@ -26,13 +26,14 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        // We use a map to handle individual failures gracefully.
-        // Even if icon.png is missing, the app should still work offline.
+        // Attempt to cache all, but don't fail entire install if one fails (except core)
+        // We iterate and fetch individually to be robust
         const cachePromises = PRECACHE_URLS.map(async (url) => {
             try {
-                const response = await fetch(url);
+                const req = new Request(url, { mode: 'cors' });
+                const response = await fetch(req);
                 if (response.ok) {
-                    return cache.put(url, response);
+                    return cache.put(req, response);
                 }
             } catch (error) {
                 console.warn('Pre-caching failed for:', url, error);
@@ -60,52 +61,46 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
-  // 1. Navigation Requests (HTML) - SPA Strategy
+  // 1. Navigation Requests (HTML) - Network First, Fallback to Cache
+  // We use Network First for HTML to ensure updates are seen, but fallback to cache for offline.
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      caches.match('/index.html').then((response) => {
-        return response || fetch(event.request).catch(() => caches.match('/index.html'));
-      })
+      fetch(event.request)
+        .then((response) => {
+           return caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, response.clone());
+              return response;
+           });
+        })
+        .catch(() => {
+          return caches.match('/index.html');
+        })
     );
     return;
   }
 
-  // 2. Runtime Caching for Assets (JS, CSS, Images, etc.)
-  // If it's not a navigation, try to serve from cache, otherwise fetch and cache.
-  // This "Stale-While-Revalidate" or "Cache First" hybrid ensures we capture
-  // whatever assets the app actually requests during operation.
+  // 2. Runtime Caching for Assets (Stale-While-Revalidate)
+  // This ensures we return the cached version fast, but update it in the background
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      // If found in cache, return it
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      // If not in cache, fetch it from network
-      return fetch(event.request).then((networkResponse) => {
-        // Check if we received a valid response
-        if (
-          !networkResponse ||
-          networkResponse.status !== 200 ||
-          networkResponse.type !== 'basic' && networkResponse.type !== 'cors'
-        ) {
+    caches.open(RUNTIME_CACHE).then((cache) => {
+      return cache.match(event.request).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
+          // Cache valid responses
+          if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 0)) {
+            cache.put(event.request, networkResponse.clone());
+          }
           return networkResponse;
-        }
-
-        // Clone the response because it's a stream and can only be consumed once
-        const responseToCache = networkResponse.clone();
-
-        caches.open(RUNTIME_CACHE).then((cache) => {
-          cache.put(event.request, responseToCache);
+        }).catch((err) => {
+           // Network failed
+           console.log('Offline fetch failed:', event.request.url);
         });
 
-        return networkResponse;
-      }).catch((err) => {
-         // Network failed and not in cache. 
-         // For images, we could return a placeholder here if needed.
-         console.log('Fetch failed for', event.request.url);
+        return cachedResponse || fetchPromise;
       });
     })
   );
