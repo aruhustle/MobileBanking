@@ -1,27 +1,28 @@
 
-const CACHE_NAME = 'hdfc-money-v11';
-const RUNTIME_CACHE = 'hdfc-runtime-v11';
+const CACHE_NAME = 'hdfc-money-v12';
+const RUNTIME_CACHE = 'hdfc-runtime-v12';
 
 // Core assets to cache immediately
-// NOTE: We include extensions (.tsx, .ts) to match the actual file system
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/index.tsx',
   '/manifest.json',
   '/icon.png',
-  // External Dependencies
+  // External Dependencies - Exact Import Map Matches
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
   'https://aistudiocdn.com/html2canvas@^1.4.1',
   'https://aistudiocdn.com/react@^19.2.0',
+  'https://aistudiocdn.com/react@^19.2.0/jsx-runtime', // Potentially used by transpiler
   'https://aistudiocdn.com/react-dom@^19.2.0/',
+  'https://aistudiocdn.com/react-dom@^19.2.0/client', // Critical for index.tsx startup
   'https://aistudiocdn.com/lucide-react@^0.555.0',
   'https://aistudiocdn.com/@google/genai@^1.30.0',
   'https://aistudiocdn.com/react-router-dom@^7.9.6',
   'https://aistudiocdn.com/react-webcam@^7.2.0',
   'https://aistudiocdn.com/jsqr@^1.4.0',
-  // Local Modules (App logic) - explicitly caching with extensions
+  // Local Modules (App logic)
   '/App.tsx',
   '/utils/upiParser.ts',
   '/utils/historyManager.ts',
@@ -51,9 +52,11 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        // We wrap each fetch in a catch so one failure doesn't stop the whole installation
         const cachePromises = PRECACHE_URLS.map(async (url) => {
             try {
+                // Using no-cors for generic CDNs to avoid opaque response issues if they don't support CORS (though these usually do)
+                // However, for scripts, we need CORS to execute in module workers sometimes. 
+                // We'll stick to 'cors' as these are ESM modules.
                 const req = new Request(url, { mode: 'cors' });
                 const response = await fetch(req);
                 if (response.ok) {
@@ -96,21 +99,14 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 1. Navigation Requests (HTML) - CACHE FIRST Strategy (App Shell)
-  // This ensures the app loads immediately from cache even if offline (Cold Start)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       (async () => {
         try {
-          // Always try to serve the cached index.html for any navigation request (SPA)
           const cachedShell = await caches.match('/index.html');
-          if (cachedShell) {
-            return cachedShell;
-          }
-          // Only go to network if cache is missing (first load)
+          if (cachedShell) return cachedShell;
           return await fetch(event.request);
         } catch (error) {
-          // If network fails and no cache, fallback to trying to find index.html again 
-          // (robustness check) or fail gracefully
           return caches.match('/index.html');
         }
       })()
@@ -121,12 +117,11 @@ self.addEventListener('fetch', (event) => {
   // 2. Asset Requests with Smart Extension Matching
   event.respondWith(
     (async () => {
-      // Try to find the exact request in cache
+      // A. Exact Match
       const exactMatch = await caches.match(event.request);
       if (exactMatch) return exactMatch;
 
-      // If exact match fails, try appending extensions (for extension-less imports)
-      // e.g. request for '/App' looks for cached '/App.tsx'
+      // B. Extension Match (for local imports like /App -> /App.tsx)
       if (!url.pathname.includes('.')) {
          const tsxMatch = await caches.match(url.pathname + '.tsx');
          if (tsxMatch) return tsxMatch;
@@ -135,18 +130,18 @@ self.addEventListener('fetch', (event) => {
          if (tsMatch) return tsMatch;
       }
 
-      // If not in cache, try network
+      // C. Network Fallback
       try {
         const networkResponse = await fetch(event.request);
-        // Save to runtime cache if successful
         if (networkResponse && networkResponse.ok) {
           const cache = await caches.open(RUNTIME_CACHE);
           cache.put(event.request, networkResponse.clone());
         }
         return networkResponse;
       } catch (error) {
-        // Network failed and not in cache. 
-        return undefined; 
+        // D. Offline Failure
+        // Return a 503 response instead of failing to ensure the browser doesn't crash the script load
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       }
     })()
   );

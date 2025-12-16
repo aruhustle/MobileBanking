@@ -17,7 +17,7 @@ import { BillPayments } from './pages/BillPayments';
 import { BankTransfer } from './pages/BankTransfer';
 import { getCurrentUser } from './utils/authManager';
 import { syncOfflineTransactions } from './utils/historyManager';
-import { WifiOff, RefreshCw, CheckCircle2, X, RotateCcw } from 'lucide-react';
+import { WifiOff, RefreshCw, CheckCircle2, X, RotateCcw, CloudOff } from 'lucide-react';
 
 // Protected Route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -121,8 +121,11 @@ const OfflineBanner: React.FC = () => {
     return (
       <div className="bg-gray-800 text-white text-xs py-3 px-4 flex items-center justify-between gap-2 fixed bottom-4 left-4 right-4 rounded-xl shadow-xl z-50 animate-fade-in-up border border-gray-700">
         <div className="flex items-center gap-2">
-            <WifiOff size={16} className="text-gray-400" />
-            <span className="font-medium">You're offline</span>
+            <CloudOff size={16} className="text-orange-400" />
+            <div>
+              <p className="font-bold">Offline Mode</p>
+              <p className="text-[10px] text-gray-400">Transactions saved locally</p>
+            </div>
         </div>
         <div className="flex items-center gap-3">
             <button 
@@ -131,7 +134,7 @@ const OfflineBanner: React.FC = () => {
                 className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-md text-[10px] font-bold transition"
             >
                 <RotateCcw size={10} className={isChecking ? 'animate-spin' : ''} />
-                {isChecking ? '...' : 'RETRY'}
+                {isChecking ? '...' : 'RECONNECT'}
             </button>
             <button onClick={() => setDismissed(true)} className="p-1 hover:bg-white/20 rounded-full text-gray-400 hover:text-white">
                 <X size={16} />
