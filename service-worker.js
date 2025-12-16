@@ -1,11 +1,10 @@
 
-const CACHE_NAME = 'hdfc-money-v1';
-const DYNAMIC_CACHE = 'hdfc-dynamic-v1';
+const CACHE_NAME = 'hdfc-money-v2';
+const DYNAMIC_CACHE = 'hdfc-dynamic-v2';
 
 const URLS_TO_CACHE = [
   '/',
   '/index.html',
-  '/index.tsx',
   '/manifest.json',
   '/icon.png'
 ];
@@ -37,35 +36,55 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch Event: Network First, falling back to Cache for HTML/JS
-// Stale-while-revalidate for assets
+// Fetch Event
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Handle external CDNs (imports)
+  // Strategy for External Resources (CDNs, APIs)
+  // Stale-While-Revalidate: Return cache if available, but update it in background
   if (url.origin !== self.location.origin) {
     event.respondWith(
       caches.open(DYNAMIC_CACHE).then((cache) => {
-        return fetch(event.request)
-          .then((response) => {
-            // Cache valid responses only
-            if(response.status === 200) {
-                cache.put(event.request, response.clone());
-            }
-            return response;
-          })
-          .catch(() => {
-            return cache.match(event.request);
-          });
+        return cache.match(event.request).then((cachedResponse) => {
+          const fetchPromise = fetch(event.request)
+            .then((networkResponse) => {
+              if (networkResponse && networkResponse.status === 200) {
+                 cache.put(event.request, networkResponse.clone());
+              }
+              return networkResponse;
+            })
+            .catch(() => cachedResponse); // Fallback to cache on network fail
+
+          return cachedResponse || fetchPromise;
+        });
       })
     );
     return;
   }
 
-  // App Shell Strategy
+  // Strategy for Local App Files (JS, TSX, CSS)
+  // Cache First, then Network (and update cache)
+  // This ensures that once a file is loaded, it works offline.
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      if (response) {
+        return response;
+      }
+
+      return fetch(event.request).then((networkResponse) => {
+        // Cache the new file for next time
+        // Check if valid response
+        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+          return networkResponse;
+        }
+
+        const responseToCache = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, responseToCache);
+        });
+
+        return networkResponse;
+      });
     })
   );
 });
