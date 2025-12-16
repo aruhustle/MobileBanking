@@ -1,6 +1,6 @@
 
-const CACHE_NAME = 'hdfc-money-v8';
-const RUNTIME_CACHE = 'hdfc-runtime-v8';
+const CACHE_NAME = 'hdfc-money-v9';
+const RUNTIME_CACHE = 'hdfc-runtime-v9';
 
 // Core assets to cache immediately
 const PRECACHE_URLS = [
@@ -111,22 +111,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Runtime Caching for Assets (Stale-While-Revalidate)
+  // 2. Asset Requests (Stale-While-Revalidate Strategy)
+  // Check ALL caches (Precache + Runtime) first
   event.respondWith(
-    caches.open(RUNTIME_CACHE).then((cache) => {
-      return cache.match(event.request).then((cachedResponse) => {
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
-          // Cache valid responses
-          if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 0)) {
-            cache.put(event.request, networkResponse.clone());
-          }
-          return networkResponse;
-        }).catch((err) => {
-           // Network failed, nothing to do if not in cache
-        });
-
-        return cachedResponse || fetchPromise;
+    caches.match(event.request).then((cachedResponse) => {
+      // Fetch from network to update cache in background (Stale-while-revalidate)
+      const fetchPromise = fetch(event.request).then((networkResponse) => {
+        // Cache valid responses
+        if (networkResponse && (networkResponse.status === 200 || networkResponse.status === 0)) {
+           const responseToCache = networkResponse.clone();
+           caches.open(RUNTIME_CACHE).then((cache) => {
+             cache.put(event.request, responseToCache);
+           });
+        }
+        return networkResponse;
+      }).catch((err) => {
+         // Network failed, handled by returning cachedResponse below or erroring if empty
+         // console.log('Offline fetch failed:', event.request.url);
       });
+
+      // Return cached response immediately if available, otherwise wait for network
+      return cachedResponse || fetchPromise;
     })
   );
 });
