@@ -2,7 +2,7 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { useNavigate } from 'react-router-dom';
-import { X, Flashlight, Image as ImageIcon, AlertCircle, Zap, ZapOff, RefreshCcw } from 'lucide-react';
+import { X, Image as ImageIcon, AlertCircle, Zap, ZapOff, RefreshCcw, Lock } from 'lucide-react';
 import jsQR from 'jsqr';
 import { parseUPIUri } from '../utils/upiParser';
 
@@ -11,27 +11,36 @@ export const Scan: React.FC = () => {
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const processingCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(true);
   const [invalidQrDetected, setInvalidQrDetected] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
-  const [cameraType, setCameraType] = useState<'environment' | 'user'>('environment');
   
+  // Camera State
+  const [cameraAttempt, setCameraAttempt] = useState(0);
+  const [activeFacingMode, setActiveFacingMode] = useState<'environment' | 'user'>('environment');
+
   // Visual Feedback State
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Check for HTTPS on mount
+  useEffect(() => {
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        setError("Camera requires a secure HTTPS connection.");
+    }
+  }, []);
 
   const handleScan = useCallback(() => {
     if (!webcamRef.current || !webcamRef.current.video) return;
 
     const video = webcamRef.current.video;
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      // 1. Prepare Processing Canvas
       if (!processingCanvasRef.current) {
          processingCanvasRef.current = document.createElement('canvas');
       }
       const canvas = processingCanvasRef.current;
       
-      // Resize only if needed
       if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
          canvas.width = video.videoWidth;
          canvas.height = video.videoHeight;
@@ -39,7 +48,6 @@ export const Scan: React.FC = () => {
 
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-      // 2. Prepare Overlay Canvas
       const overlayCtx = overlayCanvasRef.current?.getContext('2d');
       if (overlayCanvasRef.current && overlayCtx) {
           if (overlayCanvasRef.current.width !== video.videoWidth || overlayCanvasRef.current.height !== video.videoHeight) {
@@ -52,6 +60,8 @@ export const Scan: React.FC = () => {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        // Scan for QR
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
           inversionAttempts: "dontInvert",
         });
@@ -60,16 +70,10 @@ export const Scan: React.FC = () => {
           const parsed = parseUPIUri(code.data);
 
           if (parsed) {
-            if (overlayCtx) {
-               drawSuccessOverlay(overlayCtx, code.location);
-            }
-
+            if (overlayCtx) drawSuccessOverlay(overlayCtx, code.location);
             setScanning(false);
             if (navigator.vibrate) navigator.vibrate(50);
-            
-            setTimeout(() => {
-                navigate('/confirm', { state: { data: parsed } });
-            }, 200);
+            setTimeout(() => navigate('/confirm', { state: { data: parsed } }), 200);
           } else {
             if (!invalidQrDetected) {
                 setInvalidQrDetected(true);
@@ -83,8 +87,6 @@ export const Scan: React.FC = () => {
 
   const drawSuccessOverlay = (ctx: CanvasRenderingContext2D, location: any) => {
       const { topLeftCorner, topRightCorner, bottomRightCorner, bottomLeftCorner } = location;
-      const time = Date.now() / 1000;
-      
       ctx.beginPath();
       ctx.moveTo(topLeftCorner.x, topLeftCorner.y);
       ctx.lineTo(topRightCorner.x, topRightCorner.y);
@@ -94,46 +96,58 @@ export const Scan: React.FC = () => {
       ctx.lineWidth = 4;
       ctx.strokeStyle = "#3b82f6";
       ctx.stroke();
-      
-      const pulseOpacity = 0.1 + (Math.sin(time * 8) + 1) * 0.1;
-      ctx.fillStyle = `rgba(59, 130, 246, ${pulseOpacity})`;
+      ctx.fillStyle = `rgba(59, 130, 246, 0.2)`;
       ctx.fill();
   };
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (scanning) {
-        handleScan();
-      }
+      if (scanning && !error) handleScan();
     }, 150); 
     return () => clearInterval(interval);
-  }, [handleScan, scanning]);
+  }, [handleScan, scanning, error]);
 
   const toggleTorch = () => {
     const video = webcamRef.current?.video;
     if (video && video.srcObject) {
         const stream = video.srcObject as MediaStream;
         const track = stream.getVideoTracks()[0];
-        
         try {
             const newStatus = !torchOn;
-            track.applyConstraints({
-                advanced: [{ torch: newStatus } as any]
-            })
-            .then(() => setTorchOn(newStatus))
-            .catch((err: any) => {
-                console.error("Torch error", err);
-                // Fail silently on UI, most devices just ignore it
-            });
-        } catch(e) {
-            console.error(e);
-        }
+            // @ts-ignore
+            track.applyConstraints({ advanced: [{ torch: newStatus }] })
+                 .then(() => setTorchOn(newStatus))
+                 .catch(() => {});
+        } catch(e) {}
     }
   };
 
   const switchCamera = () => {
-    setCameraType(prev => prev === 'environment' ? 'user' : 'environment');
-    setError(null); // Reset error on switch
+    // Toggle between user and environment
+    setActiveFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
+    setError(null);
+  };
+
+  const handleCameraError = (e: string | DOMException) => {
+      console.error("Camera Error Event:", e);
+      const errName = typeof e === 'string' ? e : e.name;
+      
+      // Auto-fallback logic
+      if (activeFacingMode === 'environment' && cameraAttempt < 1) {
+          console.log("Environment camera failed, trying user camera...");
+          setCameraAttempt(prev => prev + 1);
+          setActiveFacingMode('user');
+          return;
+      }
+
+      let msg = "Could not access camera.";
+      if (errName === "NotAllowedError" || errName === "PermissionDeniedError") msg = "Permission denied. Please allow camera access in browser settings.";
+      else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") msg = "No camera device found.";
+      else if (errName === "NotReadableError" || errName === "TrackStartError") msg = "Camera is in use by another app.";
+      else if (errName === "OverconstrainedError") msg = "Camera resolution not supported.";
+      else if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') msg = "Secure connection (HTTPS) required.";
+      
+      setError(msg);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,19 +187,6 @@ export const Scan: React.FC = () => {
     event.target.value = '';
   };
 
-  const simulateScan = () => {
-    const mockUri = "upi://pay?pa=merchant@bank&pn=CoffeeShop&am=150.00&tn=Latte&mc=5411";
-    const parsed = parseUPIUri(mockUri);
-    if (navigator.vibrate) navigator.vibrate(50);
-    navigate('/confirm', { state: { data: parsed } });
-  };
-
-  // Relaxed constraints for Android compatibility
-  const videoConstraints = {
-    facingMode: cameraType
-    // Removed width/height to prevent OverconstrainedError on some Androids
-  };
-
   return (
     <div className="relative h-screen w-full bg-black overflow-hidden flex flex-col">
       <input 
@@ -196,26 +197,19 @@ export const Scan: React.FC = () => {
         onChange={handleFileUpload} 
       />
 
-      <div className="absolute inset-0 z-0 bg-gray-900">
-        {!error && (
+      <div className="absolute inset-0 z-0 bg-gray-900 flex items-center justify-center">
+        {!error ? (
             <Webcam
-            audio={false}
-            ref={webcamRef}
-            screenshotFormat="image/jpeg"
-            videoConstraints={videoConstraints}
-            className="h-full w-full object-cover"
-            playsInline={true}
-            onUserMediaError={(e) => {
-                console.error("Camera Error:", e);
-                let msg = "Could not access camera.";
-                if (e.name === "NotAllowedError" || e.name === "PermissionDeniedError") msg = "Camera permission denied. Please allow access in browser settings.";
-                if (e.name === "NotFoundError" || e.name === "DevicesNotFoundError") msg = "No camera found.";
-                if (e.name === "NotReadableError" || e.name === "TrackStartError") msg = "Camera is in use by another app.";
-                if (e.name === "OverconstrainedError") msg = "Camera resolution not supported.";
-                setError(msg);
-            }}
+                key={activeFacingMode} // Force remount on camera switch
+                audio={false}
+                ref={webcamRef}
+                screenshotFormat="image/jpeg"
+                videoConstraints={{ facingMode: activeFacingMode }}
+                className="h-full w-full object-cover"
+                playsInline
+                onUserMediaError={handleCameraError}
             />
-        )}
+        ) : null}
         <canvas 
             ref={overlayCanvasRef}
             className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -244,24 +238,27 @@ export const Scan: React.FC = () => {
         </div>
 
         {error ? (
-             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-fade-in">
                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center text-red-500 mb-4">
-                     <AlertCircle size={32} />
+                     {error.includes("HTTPS") ? <Lock size={32}/> : <AlertCircle size={32} />}
                  </div>
                  <h3 className="text-white font-bold text-lg mb-2">Camera Issue</h3>
-                 <p className="text-gray-300 text-sm mb-6">{error}</p>
-                 <button 
-                   onClick={() => window.location.reload()}
-                   className="bg-white text-black px-6 py-2 rounded-full text-sm font-bold"
-                 >
-                   Retry
-                 </button>
-                 <button 
-                   onClick={simulateScan}
-                   className="mt-4 text-gray-400 text-xs underline"
-                 >
-                   Use Simulator (Dev)
-                 </button>
+                 <p className="text-gray-300 text-sm mb-6 max-w-xs mx-auto">{error}</p>
+                 
+                 <div className="flex gap-3">
+                    <button 
+                    onClick={() => { setError(null); setCameraAttempt(0); setActiveFacingMode('environment'); }}
+                    className="bg-white text-black px-6 py-2 rounded-full text-sm font-bold active:scale-95 transition"
+                    >
+                    Retry
+                    </button>
+                    <button 
+                    onClick={() => { setError(null); setActiveFacingMode('user'); }}
+                    className="bg-gray-800 text-white px-6 py-2 rounded-full text-sm font-bold active:scale-95 transition"
+                    >
+                    Try Front Camera
+                    </button>
+                 </div>
              </div>
         ) : (
             <div className="flex-1 flex items-center justify-center pointer-events-none">
@@ -317,4 +314,3 @@ export const Scan: React.FC = () => {
     </div>
   );
 };
-    

@@ -17,7 +17,7 @@ import { BillPayments } from './pages/BillPayments';
 import { BankTransfer } from './pages/BankTransfer';
 import { getCurrentUser } from './utils/authManager';
 import { syncOfflineTransactions } from './utils/historyManager';
-import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { WifiOff, RefreshCw, CheckCircle2, X } from 'lucide-react';
 
 // Protected Route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -38,11 +38,13 @@ const OfflineBanner: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       setIsSyncing(true);
+      setDismissed(false); // Reset dismissal on reconnection
       
       // Perform Sync
       syncOfflineTransactions();
@@ -88,11 +90,16 @@ const OfflineBanner: React.FC = () => {
     );
   }
 
-  if (!isOnline) {
+  if (!isOnline && !dismissed) {
     return (
-      <div className="bg-gray-800 text-white text-xs py-2 px-4 flex items-center justify-center gap-2 fixed top-0 left-0 right-0 z-50">
-        <WifiOff size={14} />
-        <span>You are offline. App is working in offline mode.</span>
+      <div className="bg-gray-800 text-white text-xs py-2 px-4 flex items-center justify-between gap-2 fixed top-0 left-0 right-0 z-50 shadow-md">
+        <div className="flex items-center gap-2">
+            <WifiOff size={14} />
+            <span>You're offline. Some features may be limited.</span>
+        </div>
+        <button onClick={() => setDismissed(true)} className="p-1 hover:bg-white/20 rounded-full">
+            <X size={14} />
+        </button>
       </div>
     );
   }
