@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Scan } from './pages/Scan';
@@ -17,7 +17,7 @@ import { BillPayments } from './pages/BillPayments';
 import { BankTransfer } from './pages/BankTransfer';
 import { getCurrentUser } from './utils/authManager';
 import { syncOfflineTransactions } from './utils/historyManager';
-import { WifiOff, RefreshCw, CheckCircle2, X } from 'lucide-react';
+import { WifiOff, RefreshCw, CheckCircle2, X, RotateCcw } from 'lucide-react';
 
 // Protected Route wrapper
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -39,38 +39,65 @@ const OfflineBanner: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+
+  const checkConnection = useCallback(async () => {
+    setIsChecking(true);
+    try {
+      // Bypass cache to check real network connectivity
+      await fetch(`/?_ping=${Date.now()}`, { method: 'HEAD', cache: 'no-store' });
+      
+      // If we reach here, we are online
+      if (!isOnline) {
+         handleOnline();
+      }
+      setIsOnline(true);
+    } catch (e) {
+      setIsOnline(false);
+    } finally {
+      setIsChecking(false);
+    }
+  }, [isOnline]);
+
+  const handleOnline = () => {
+    setIsOnline(true);
+    setIsSyncing(true);
+    setDismissed(false); // Reset dismissal on reconnection
+    
+    // Perform Sync
+    syncOfflineTransactions();
+
+    // Simulate sync delay for UX
+    setTimeout(() => {
+      setIsSyncing(false);
+      setSyncDone(true);
+      // Hide success message after 3s
+      setTimeout(() => setSyncDone(false), 3000);
+    }, 1500);
+  };
 
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      setIsSyncing(true);
-      setDismissed(false); // Reset dismissal on reconnection
-      
-      // Perform Sync
-      syncOfflineTransactions();
+    const onOnline = () => handleOnline();
+    const onOffline = () => setIsOnline(false);
 
-      // Simulate sync delay for UX
-      setTimeout(() => {
-        setIsSyncing(false);
-        setSyncDone(true);
-        // Hide success message after 3s
-        setTimeout(() => setSyncDone(false), 3000);
-      }, 1500);
-    };
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
 
-    const handleOffline = () => {
-      setIsOnline(false);
-      setSyncDone(false);
-    };
+    // Initial check on mount
+    checkConnection();
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    // Poll if offline
+    let interval: any;
+    if (!isOnline) {
+        interval = setInterval(checkConnection, 5000);
+    }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      if (interval) clearInterval(interval);
     };
-  }, []);
+  }, [isOnline, checkConnection]);
 
   if (isSyncing) {
     return (
@@ -97,9 +124,19 @@ const OfflineBanner: React.FC = () => {
             <WifiOff size={14} />
             <span>You're offline. Some features may be limited.</span>
         </div>
-        <button onClick={() => setDismissed(true)} className="p-1 hover:bg-white/20 rounded-full">
-            <X size={14} />
-        </button>
+        <div className="flex items-center gap-2">
+            <button 
+                onClick={checkConnection} 
+                disabled={isChecking}
+                className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-[10px] font-medium transition"
+            >
+                <RotateCcw size={10} className={isChecking ? 'animate-spin' : ''} />
+                {isChecking ? 'Checking...' : 'Retry'}
+            </button>
+            <button onClick={() => setDismissed(true)} className="p-1 hover:bg-white/20 rounded-full">
+                <X size={14} />
+            </button>
+        </div>
       </div>
     );
   }

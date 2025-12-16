@@ -26,8 +26,6 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        // Attempt to cache all, but don't fail entire install if one fails (except core)
-        // We iterate and fetch individually to be robust
         const cachePromises = PRECACHE_URLS.map(async (url) => {
             try {
                 const req = new Request(url, { mode: 'cors' });
@@ -66,8 +64,12 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
+  // Bypass service worker logic for ping checks
+  if (url.searchParams.has('_ping')) {
+    return; 
+  }
+
   // 1. Navigation Requests (HTML) - Network First, Fallback to Cache
-  // We use Network First for HTML to ensure updates are seen, but fallback to cache for offline.
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -85,7 +87,6 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 2. Runtime Caching for Assets (Stale-While-Revalidate)
-  // This ensures we return the cached version fast, but update it in the background
   event.respondWith(
     caches.open(RUNTIME_CACHE).then((cache) => {
       return cache.match(event.request).then((cachedResponse) => {
@@ -96,7 +97,6 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         }).catch((err) => {
-           // Network failed
            console.log('Offline fetch failed:', event.request.url);
         });
 
