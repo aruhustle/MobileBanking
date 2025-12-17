@@ -1,6 +1,6 @@
 
-const CACHE_NAME = 'hdfc-money-v13';
-const RUNTIME_CACHE = 'hdfc-runtime-v13';
+const CACHE_NAME = 'hdfc-money-v14';
+const RUNTIME_CACHE = 'hdfc-runtime-v14';
 
 // Core assets to cache immediately
 const PRECACHE_URLS = [
@@ -137,7 +137,6 @@ self.addEventListener('fetch', (event) => {
         return networkResponse;
       } catch (error) {
         // D. Offline Fallback
-        // Return 503 to avoid browser crashing on module fetch error
         return new Response('Offline', { status: 503, statusText: 'Offline' });
       }
     })()

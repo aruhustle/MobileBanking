@@ -25,6 +25,13 @@ export const Scan: React.FC = () => {
   // Visual Feedback State
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Improved constraints for iOS robustness
+  const videoConstraints = {
+    facingMode: activeFacingMode,
+    width: { ideal: 1280 },
+    height: { ideal: 720 }
+  };
+
   // Check for HTTPS on mount
   useEffect(() => {
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -148,7 +155,15 @@ export const Scan: React.FC = () => {
       }
 
       let msg = "Could not access camera.";
-      if (errName === "NotAllowedError" || errName === "PermissionDeniedError") msg = "Permission denied. Please allow camera access in browser settings.";
+      if (errName === "NotAllowedError" || errName === "PermissionDeniedError") {
+          // Detect iOS for specific instructions
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          if (isIOS) {
+              msg = "Camera permission denied. Please go to Settings > Safari > Camera and set it to 'Allow', then refresh.";
+          } else {
+              msg = "Permission denied. Please allow camera access in browser settings.";
+          }
+      }
       else if (errName === "NotFoundError" || errName === "DevicesNotFoundError") msg = "No camera device found.";
       else if (errName === "NotReadableError" || errName === "TrackStartError") msg = "Camera is in use by another app.";
       else if (errName === "OverconstrainedError") msg = "Camera resolution not supported.";
@@ -225,12 +240,14 @@ export const Scan: React.FC = () => {
             <Webcam
                 key={activeFacingMode} // Force remount on camera switch
                 audio={false}
+                muted={true} // CRITICAL for iOS: Video must be muted to autoplay in some contexts
                 ref={webcamRef}
                 screenshotFormat="image/jpeg"
-                videoConstraints={{ facingMode: activeFacingMode }}
+                videoConstraints={videoConstraints}
                 className="h-full w-full object-cover"
-                playsInline
+                playsInline={true}
                 onUserMediaError={handleCameraError}
+                onUserMedia={() => setError(null)}
             />
         ) : null}
         
